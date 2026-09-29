@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function myRole() {
+      return myProfile().role;
+    }
+
+    function isActive() {
+      return myProfile().active == true;
+    }
+
+    function hasAnyRole(roles) {
+      return isSignedIn() && isActive() && myRole() in roles;
+    }
+
+    // Perfil propio: cualquier usuario autenticado puede leer su propio doc
+    // (necesario para resolver el rol al iniciar sesión). Sólo SUPERUSER
+    // administra usuarios.
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || hasAnyRole(['SUPERVISOR','SUPERUSER']));
+      allow write: if hasAnyRole(['SUPERUSER']);
+    }
+
+    match /clients/{clientId} {
+      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','SUPERUSER','CLIENT']);
+      allow write: if hasAnyRole(['SUPERVISOR','SUPERUSER']);
+    }
+
+    match /projects/{projectId} {
+      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','SUPERUSER','CLIENT']);
+      allow write: if hasAnyRole(['SUPERVISOR','SUPERUSER']);
+    }
+
+    match /tasks/{taskId} {
+      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','SUPERUSER']);
+      allow create, update: if hasAnyRole(['SUPERVISOR','SUPERUSER']) ||
+        (hasAnyRole(['OPERATOR']) && request.resource.data.assignedUserId == request.auth.uid);
+      allow delete: if hasAnyRole(['SUPERVISOR','SUPERUSER']);
+    }
+
+    match /timeEntries/{entryId} {
+      allow read: if hasAnyRole(['SUPERVISOR','SUPERUSER']) ||
+        (isSignedIn() && isActive() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && isActive() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if hasAnyRole(['SUPERVISOR','SUPERUSER']) ||
+        (isSignedIn() && isActive() && resource.data.userId == request.auth.uid);
+    }
+
+    match /obligations/{obligationId} {
+      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','SUPERUSER','CLIENT']);
+      allow write: if hasAnyRole(['OPERATOR','SUPERVISOR','SUPERUSER']);
+    }
+
+    match /notifications/{notificationId} {
+      allow read, update: if isSignedIn() && isActive() && resource.data.userId == request.auth.uid;
+      allow create: if hasAnyRole(['SUPERVISOR','SUPERUSER']);
+      allow delete: if hasAnyRole(['SUPERUSER']);
+    }
+  }
+}
