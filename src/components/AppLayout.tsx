@@ -67,7 +67,10 @@ export default function AppLayout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-brand">Proyecto Contable</div>
+        <div className="sidebar-brand">
+          <img src="/logo.png" alt="Logo" className="sidebar-logo" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+          <span className="sidebar-brand-text">Proyecto Contable</span>
+        </div>
         <nav>
           {items.map((item) => (
             <NavLink
