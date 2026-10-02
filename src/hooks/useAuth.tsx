@@ -73,14 +73,18 @@ export function useAuth() {
 
 export function homeRouteForRole(role: Role | undefined): string {
   switch (role) {
+    // Superusuario y Administrador comparten el mismo segmento de rutas
+    // (/admin): según el documento de roles, ambos tienen alcance muy
+    // similar (todos los módulos operativos). Si más adelante se necesita
+    // diferenciar permisos finos entre ellos, se resuelve dentro de cada
+    // página con profile.role, sin necesidad de duplicar rutas.
     case 'SUPERUSER':
+    case 'ADMIN':
       return '/admin'
     case 'SUPERVISOR':
       return '/supervisor'
     case 'OPERATOR':
       return '/operator'
-    case 'CLIENT':
-      return '/client'
     default:
       return '/login'
   }

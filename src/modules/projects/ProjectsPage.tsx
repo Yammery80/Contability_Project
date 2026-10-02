@@ -24,7 +24,7 @@ export default function ProjectsPage() {
   useEffect(() => {
     const unsubP = projectsService.subscribe((items) => { setProjects(items); setLoading(false) })
     const unsubC = clientsService.subscribe(setClients)
-    const unsubU = usersService.subscribe((items) => setSupervisors(items.filter((u) => u.role === 'SUPERVISOR' || u.role === 'SUPERUSER')))
+    const unsubU = usersService.subscribe((items) => setSupervisors(items.filter((u) => u.role === 'SUPERVISOR' || u.role === 'ADMIN' || u.role === 'SUPERUSER')))
     return () => { unsubP(); unsubC(); unsubU() }
   }, [])
 

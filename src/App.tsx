@@ -32,14 +32,6 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/" element={<RootRedirect />} />
 
-          {/* ===== CLIENT ===== */}
-          <Route path="/client" element={<ProtectedRoute allowedRoles={['CLIENT']}><AppLayout /></ProtectedRoute>}>
-            <Route index element={<DashboardPage />} />
-            <Route path="projects" element={<ProjectsPage />} />
-            <Route path="obligations" element={<ObligationsPage />} />
-            <Route path="notifications" element={<NotificationsPage />} />
-          </Route>
-
           {/* ===== OPERATOR ===== */}
           <Route path="/operator" element={<ProtectedRoute allowedRoles={['OPERATOR']}><AppLayout /></ProtectedRoute>}>
             <Route index element={<DashboardPage />} />
@@ -61,8 +53,8 @@ export default function App() {
             <Route path="notifications" element={<NotificationsPage />} />
           </Route>
 
-          {/* ===== ADMIN (SUPERUSER) ===== */}
-          <Route path="/admin" element={<ProtectedRoute allowedRoles={['SUPERUSER']}><AppLayout /></ProtectedRoute>}>
+          {/* ===== ADMIN (Superusuario + Administrador) ===== */}
+          <Route path="/admin" element={<ProtectedRoute allowedRoles={['SUPERUSER', 'ADMIN']}><AppLayout /></ProtectedRoute>}>
             <Route index element={<DashboardPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="clients" element={<ClientsPage />} />

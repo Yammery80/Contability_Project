@@ -1,5 +1,8 @@
 // ===== Roles =====
-export type Role = 'CLIENT' | 'OPERATOR' | 'SUPERVISOR' | 'SUPERUSER'
+// Según HU-06: únicamente estos 4 roles. El cliente del despacho NO es un
+// usuario del sistema (no inicia sesión) — solo existe como registro en la
+// colección "clients" (ver interface Client más abajo).
+export type Role = 'OPERATOR' | 'SUPERVISOR' | 'ADMIN' | 'SUPERUSER'
 
 // ===== Usuario =====
 export interface AppUser {

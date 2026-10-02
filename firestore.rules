@@ -18,52 +18,63 @@ service cloud.firestore {
       return myProfile().active == true;
     }
 
+    // Roles válidos: SUPERUSER, ADMIN, SUPERVISOR, OPERATOR (HU-06).
+    // No existe un rol "CLIENT": el cliente del despacho nunca inicia
+    // sesión, solo vive como registro en la colección /clients.
     function hasAnyRole(roles) {
       return isSignedIn() && isActive() && myRole() in roles;
     }
 
     // Perfil propio: cualquier usuario autenticado puede leer su propio doc
-    // (necesario para resolver el rol al iniciar sesión). Sólo SUPERUSER
-    // administra usuarios.
+    // (necesario para resolver el rol al iniciar sesión). Administrar
+    // usuarios (crear/editar/desactivar/asignar rol) es de SUPERUSER y
+    // ADMIN según HU-02 a HU-06.
     match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || hasAnyRole(['SUPERVISOR','SUPERUSER']));
-      allow write: if hasAnyRole(['SUPERUSER']);
+      allow read: if isSignedIn() && (request.auth.uid == userId || hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']));
+      allow write: if hasAnyRole(['ADMIN','SUPERUSER']);
     }
 
     match /clients/{clientId} {
-      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','SUPERUSER','CLIENT']);
-      allow write: if hasAnyRole(['SUPERVISOR','SUPERUSER']);
+      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','ADMIN','SUPERUSER']);
+      allow write: if hasAnyRole(['ADMIN','SUPERUSER']);
     }
 
     match /projects/{projectId} {
-      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','SUPERUSER','CLIENT']);
-      allow write: if hasAnyRole(['SUPERVISOR','SUPERUSER']);
+      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','ADMIN','SUPERUSER']);
+      allow write: if hasAnyRole(['ADMIN','SUPERUSER']);
     }
 
     match /tasks/{taskId} {
-      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','SUPERUSER']);
-      allow create, update: if hasAnyRole(['SUPERVISOR','SUPERUSER']) ||
-        (hasAnyRole(['OPERATOR']) && request.resource.data.assignedUserId == request.auth.uid);
-      allow delete: if hasAnyRole(['SUPERVISOR','SUPERUSER']);
+      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','ADMIN','SUPERUSER']);
+      // Crear/asignar tareas: Administrador o Supervisor (HU-19, HU-20).
+      // El Operador solo puede actualizar su propio estado de tarea (HU-22).
+      allow create: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']);
+      allow update: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']) ||
+        (hasAnyRole(['OPERATOR']) && resource.data.assignedUserId == request.auth.uid);
+      allow delete: if hasAnyRole(['ADMIN','SUPERUSER']);
     }
 
     match /timeEntries/{entryId} {
-      allow read: if hasAnyRole(['SUPERVISOR','SUPERUSER']) ||
+      allow read: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']) ||
         (isSignedIn() && isActive() && resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && isActive() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if hasAnyRole(['SUPERVISOR','SUPERUSER']) ||
+      allow update, delete: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']) ||
         (isSignedIn() && isActive() && resource.data.userId == request.auth.uid);
     }
 
     match /obligations/{obligationId} {
-      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','SUPERUSER','CLIENT']);
-      allow write: if hasAnyRole(['OPERATOR','SUPERVISOR','SUPERUSER']);
+      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','ADMIN','SUPERUSER']);
+      // Registrar/asignar obligación: Administrador o Supervisor (HU-33, HU-34).
+      // Completar (HU-37) la puede hacer también el Operador responsable.
+      allow create, delete: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']);
+      allow update: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']) ||
+        (hasAnyRole(['OPERATOR']) && resource.data.assignedUserId == request.auth.uid);
     }
 
     match /notifications/{notificationId} {
       allow read, update: if isSignedIn() && isActive() && resource.data.userId == request.auth.uid;
-      allow create: if hasAnyRole(['SUPERVISOR','SUPERUSER']);
-      allow delete: if hasAnyRole(['SUPERUSER']);
+      allow create: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']);
+      allow delete: if hasAnyRole(['ADMIN','SUPERUSER']);
     }
   }
 }

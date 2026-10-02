@@ -2,7 +2,13 @@ import React, { useEffect, useState } from 'react'
 import { usersService } from './usersService'
 import { AppUser, Role } from '../../models'
 
-const ROLES: Role[] = ['CLIENT', 'OPERATOR', 'SUPERVISOR', 'SUPERUSER']
+const ROLES: Role[] = ['OPERATOR', 'SUPERVISOR', 'ADMIN', 'SUPERUSER']
+const ROLE_LABEL: Record<Role, string> = {
+  OPERATOR: 'Operador / Colaborador',
+  SUPERVISOR: 'Supervisor',
+  ADMIN: 'Administrador',
+  SUPERUSER: 'Superusuario',
+}
 
 const emptyForm = { name: '', email: '', role: 'OPERATOR' as Role }
 
@@ -68,7 +74,7 @@ export default function UsersPage() {
         />
         <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
           {ROLES.map((r) => (
-            <option key={r} value={r}>{r}</option>
+            <option key={r} value={r}>{ROLE_LABEL[r]}</option>
           ))}
         </select>
         <button type="submit">{editingId ? 'Guardar' : 'Crear usuario'}</button>
@@ -89,7 +95,7 @@ export default function UsersPage() {
               <tr key={u.id}>
                 <td>{u.name}</td>
                 <td>{u.email}</td>
-                <td>{u.role}</td>
+                <td>{ROLE_LABEL[u.role]}</td>
                 <td>
                   <span className={'status-pill ' + (u.active ? 'ok' : 'off')}>
                     {u.active ? 'Activo' : 'Inactivo'}

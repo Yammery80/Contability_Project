@@ -8,18 +8,24 @@ interface NavItem {
   to: string
 }
 
+// Superusuario y Administrador comparten exactamente el mismo menú: según
+// el documento de roles, ambos tienen alcance a todos los módulos
+// operativos (usuarios, clientes, proyectos, tareas, obligaciones, reportes).
+const ADMIN_NAV: NavItem[] = [
+  { label: 'Dashboard', to: '/admin' },
+  { label: 'Usuarios', to: '/admin/users' },
+  { label: 'Clientes', to: '/admin/clients' },
+  { label: 'Proyectos', to: '/admin/projects' },
+  { label: 'Tareas', to: '/admin/tasks' },
+  { label: 'Time Tracker', to: '/admin/time-tracker' },
+  { label: 'Obligaciones', to: '/admin/obligations' },
+  { label: 'Reportes', to: '/admin/reports' },
+  { label: 'Notificaciones', to: '/admin/notifications' },
+]
+
 const NAV_BY_ROLE: Record<Role, NavItem[]> = {
-  SUPERUSER: [
-    { label: 'Dashboard', to: '/admin' },
-    { label: 'Usuarios', to: '/admin/users' },
-    { label: 'Clientes', to: '/admin/clients' },
-    { label: 'Proyectos', to: '/admin/projects' },
-    { label: 'Tareas', to: '/admin/tasks' },
-    { label: 'Time Tracker', to: '/admin/time-tracker' },
-    { label: 'Obligaciones', to: '/admin/obligations' },
-    { label: 'Reportes', to: '/admin/reports' },
-    { label: 'Notificaciones', to: '/admin/notifications' },
-  ],
+  SUPERUSER: ADMIN_NAV,
+  ADMIN: ADMIN_NAV,
   SUPERVISOR: [
     { label: 'Dashboard', to: '/supervisor' },
     { label: 'Clientes', to: '/supervisor/clients' },
@@ -37,19 +43,13 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { label: 'Obligaciones', to: '/operator/obligations' },
     { label: 'Notificaciones', to: '/operator/notifications' },
   ],
-  CLIENT: [
-    { label: 'Dashboard', to: '/client' },
-    { label: 'Proyectos', to: '/client/projects' },
-    { label: 'Obligaciones', to: '/client/obligations' },
-    { label: 'Notificaciones', to: '/client/notifications' },
-  ],
 }
 
 const ROLE_LABEL: Record<Role, string> = {
-  SUPERUSER: 'Administrador',
+  SUPERUSER: 'Superusuario',
+  ADMIN: 'Administrador',
   SUPERVISOR: 'Supervisor',
-  OPERATOR: 'Operador',
-  CLIENT: 'Cliente',
+  OPERATOR: 'Operador / Colaborador',
 }
 
 export default function AppLayout() {
@@ -67,10 +67,7 @@ export default function AppLayout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-brand">
-          <img src="/logo.png" alt="Logo" className="sidebar-logo" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-          <span className="sidebar-brand-text">Proyecto Contable</span>
-        </div>
+        <div className="sidebar-brand">Proyecto Contable</div>
         <nav>
           {items.map((item) => (
             <NavLink

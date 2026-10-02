@@ -35,7 +35,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!profile) return
-    if (profile.role === 'CLIENT') return // el cliente no ve time tracker
     const constraints = profile.role === 'OPERATOR' ? [where('userId', '==', profile.id)] : []
     return timeEntriesService.subscribe(setTimeEntries, constraints)
   }, [profile])
@@ -60,13 +59,11 @@ export default function DashboardPage() {
       <h1>Bienvenido/a, {profile.name}</h1>
 
       <div className="stats-grid">
-        <StatCard label={profile.role === 'CLIENT' ? 'Mis proyectos activos' : 'Proyectos activos'} value={
-          profile.role === 'CLIENT' ? '—' : activeProjects.length
-        } />
+        <StatCard label="Proyectos activos" value={activeProjects.length} />
         <StatCard label={profile.role === 'OPERATOR' ? 'Mis tareas pendientes' : 'Tareas pendientes'} value={pendingTasks.length} />
-        {profile.role !== 'CLIENT' && <StatCard label="Horas registradas (semana)" value={formatHoursMinutes(weekSeconds)} />}
+        <StatCard label="Horas registradas (semana)" value={formatHoursMinutes(weekSeconds)} />
         <StatCard label="Obligaciones próximas" value={upcomingObligations.length} />
-        {(profile.role === 'SUPERVISOR' || profile.role === 'SUPERUSER') && <StatCard label="Clientes" value={clients.length} />}
+        {profile.role !== 'OPERATOR' && <StatCard label="Clientes" value={clients.length} />}
       </div>
 
       <div className="dashboard-columns">

@@ -7,7 +7,7 @@ Stack: React + TypeScript + Vite + Firebase (Authentication + Firestore).
 ```bash
 npm install
 cp .env.example .env
-# Completa .env con las credenciales web de tu proyecto Firebase
+# Completa .env con las credenciales web de tu proyecto Firebase "hercanutrivet"
 # (Configuración del proyecto → General → Tus apps → SDK de Firebase)
 npm run dev
 ```
@@ -58,12 +58,23 @@ src/
 
 ## 4. Rutas y roles
 
-| Rol         | Ruta base | Acceso |
-|-------------|-----------|--------|
-| CLIENT      | `/client` | Dashboard, sus proyectos, obligaciones, notificaciones |
-| OPERATOR    | `/operator` | Dashboard, sus tareas, time tracker, obligaciones, notificaciones |
-| SUPERVISOR  | `/supervisor` | Todo lo anterior + clientes, proyectos, tareas de equipo, reportes |
-| SUPERUSER   | `/admin` | Todo lo anterior + gestión de usuarios |
+Según el documento oficial de Historias de Usuario (HU-06), el sistema tiene
+**4 roles** — no hay un rol "Cliente": el cliente del despacho nunca inicia
+sesión, solo existe como registro en la colección `clients`.
+
+| Rol (Firestore) | Nombre          | Ruta base | Acceso |
+|------------------|-----------------|-----------|--------|
+| `OPERATOR`       | Operador / Colaborador | `/operator` | Dashboard propio, sus tareas, time tracker, obligaciones asignadas, notificaciones |
+| `SUPERVISOR`     | Supervisor      | `/supervisor` | Todo lo anterior + clientes, proyectos, tareas de equipo, reportes |
+| `ADMIN`          | Administrador   | `/admin`  | Todo lo anterior + gestión de usuarios |
+| `SUPERUSER`      | Superusuario    | `/admin`  | Mismo alcance que Administrador (acceso total al despacho) |
+
+`SUPERUSER` y `ADMIN` comparten el mismo segmento de rutas (`/admin`) porque,
+según el documento de roles, su alcance operativo es prácticamente idéntico
+(ambos gestionan usuarios, clientes, proyectos, tareas, obligaciones y
+reportes). Si más adelante necesitan diferenciar algún permiso fino entre
+ambos (p. ej. configuración avanzada solo para Superusuario), se resuelve
+dentro de cada página revisando `profile.role`, sin duplicar rutas.
 
 `ProtectedRoute` valida sesión, que el usuario esté `active` en Firestore, y
 que su rol tenga permiso sobre esa sección.
