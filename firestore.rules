@@ -25,13 +25,27 @@ service cloud.firestore {
       return isSignedIn() && isActive() && myRole() in roles;
     }
 
-    // Perfil propio: cualquier usuario autenticado puede leer su propio doc
-    // (necesario para resolver el rol al iniciar sesión). Administrar
-    // usuarios (crear/editar/desactivar/asignar rol) es de SUPERUSER y
-    // ADMIN según HU-02 a HU-06.
+    // Usuarios:
+    // - Lectura: cualquier usuario ACTIVO puede leer perfiles (el Operador
+    //   necesita ver los nombres de sus compañeros en tareas y comentarios).
+    //   Un usuario siempre puede leer su propio perfil, incluso antes de
+    //   validar si está activo (así se resuelve su rol al iniciar sesión).
+    //   OJO: esto también expone correo y teléfono de los colegas a cualquier
+    //   usuario activo.
+    // - Alta/edición: SUPERUSER todo; ADMIN no puede crear ni modificar
+    //   cuentas de SUPERUSER ni asignar ese rol.
     match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']));
-      allow write: if hasAnyRole(['ADMIN','SUPERUSER']);
+      allow read: if isSignedIn() && (request.auth.uid == userId || isActive());
+
+      allow create: if hasAnyRole(['SUPERUSER'])
+        || (hasAnyRole(['ADMIN']) && request.resource.data.role != 'SUPERUSER');
+
+      allow update: if hasAnyRole(['SUPERUSER'])
+        || (hasAnyRole(['ADMIN'])
+            && resource.data.role != 'SUPERUSER'
+            && request.resource.data.role != 'SUPERUSER');
+
+      allow delete: if hasAnyRole(['SUPERUSER']);
     }
 
     match /clients/{clientId} {
@@ -72,8 +86,19 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
+      // Cada quien solo lee y marca como leídas SUS notificaciones.
       allow read, update: if isSignedIn() && isActive() && resource.data.userId == request.auth.uid;
-      allow create: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']);
+
+      // Cualquier usuario activo puede avisar a otro (p. ej. el Operador al
+      // completar o comentar una tarea), pero solo con la forma esperada.
+      allow create: if isSignedIn() && isActive()
+        && request.resource.data.keys().hasOnly(['userId','title','message','level','read','createdAt'])
+        && request.resource.data.userId is string
+        && request.resource.data.title is string && request.resource.data.title.size() <= 200
+        && request.resource.data.message is string && request.resource.data.message.size() <= 500
+        && request.resource.data.level in ['INFO','WARNING','URGENT']
+        && request.resource.data.read == false;
+
       allow delete: if hasAnyRole(['ADMIN','SUPERUSER']);
     }
   }
