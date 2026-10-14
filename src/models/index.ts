@@ -12,11 +12,13 @@ export interface AppUser {
   role: Role
   active: boolean
   createdAt: number
+  phone?: string
+  position?: string // puesto
 }
 
 // ===== Cliente =====
 export type ClientType = 'PHYSICAL_PERSON' | 'LEGAL_ENTITY'
-export type ClientStatus = 'ACTIVE' | 'INACTIVE'
+export type ClientStatus = 'ACTIVE' | 'PAUSED' | 'INACTIVE'
 
 export interface Client {
   id: string
@@ -46,16 +48,34 @@ export interface Project {
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH'
 
+export interface Subtask {
+  id: string
+  title: string
+  done: boolean
+}
+
+export interface TaskComment {
+  id: string
+  userId: string
+  userName: string
+  text: string
+  createdAt: number
+}
+
 export interface Task {
   id: string
   projectId: string
   title: string
   description: string
   assignedUserId: string
+  assignedBy?: string // HU-20: quién realizó la asignación
   status: TaskStatus
   priority: TaskPriority
   dueDate: string
   createdAt: number
+  estimatedHours?: number
+  subtasks?: Subtask[]
+  comments?: TaskComment[]
 }
 
 // ===== Registro de tiempo =====

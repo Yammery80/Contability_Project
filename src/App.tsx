@@ -12,6 +12,7 @@ import UsersPage from './modules/users/UsersPage'
 import ClientsPage from './modules/clients/ClientsPage'
 import ProjectsPage from './modules/projects/ProjectsPage'
 import TasksPage from './modules/tasks/TasksPage'
+import TaskDetailPage from './modules/tasks/TaskDetailPage'
 import TimeTrackerPage from './modules/timeTracker/TimeTrackerPage'
 import ObligationsPage from './modules/obligations/ObligationsPage'
 import NotificationsPage from './modules/notifications/NotificationsPage'
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/operator" element={<ProtectedRoute allowedRoles={['OPERATOR']}><AppLayout /></ProtectedRoute>}>
             <Route index element={<DashboardPage />} />
             <Route path="tasks" element={<TasksPage onlyMine />} />
+            <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
@@ -47,6 +49,7 @@ export default function App() {
             <Route path="clients" element={<ClientsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="tasks" element={<TasksPage />} />
+            <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="reports" element={<ReportsPage />} />
@@ -60,6 +63,7 @@ export default function App() {
             <Route path="clients" element={<ClientsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="tasks" element={<TasksPage />} />
+            <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="reports" element={<ReportsPage />} />

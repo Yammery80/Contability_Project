@@ -46,6 +46,13 @@ export function createFirestoreService<T extends { id: string }>(collectionName:
       await deleteDoc(ref)
     },
 
+    // Suscripción en tiempo real a un solo documento.
+    subscribeOne(id: string, callback: (item: T | null) => void): () => void {
+      return onSnapshot(doc(db, collectionName, id), (snap) => {
+        callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as T) : null)
+      })
+    },
+
     // Suscripción en tiempo real, útil para dashboards y listas que deben
     // reflejar cambios sin recargar la página.
     subscribe(

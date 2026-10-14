@@ -36,6 +36,7 @@ export default function Login() {
   return (
     <div className="auth-screen">
       <form className="auth-card" onSubmit={handleSubmit}>
+        <img src="/logo.png" alt="Logo" className="auth-logo" onError={(e) => { e.currentTarget.style.display = 'none' }} />
         <h1>Iniciar sesión</h1>
         <p className="auth-subtitle">Plataforma de gestión contable / fiscal</p>
         {error && <div className="auth-error">{error}</div>}

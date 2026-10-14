@@ -1,24 +1,27 @@
 import React, { useEffect, useState } from 'react'
 import { obligationsService, obligationSemaphore } from './obligationsService'
 import { clientsService } from '../clients/clientsService'
-import { usersService } from '../users/usersService'
+import { useUsers } from '../users/useUsers'
+import { useAuth } from '../../hooks/useAuth'
+import { can } from '../../services/permissions'
 import { Obligation, ObligationStatus, Client, AppUser } from '../../models'
 
 const emptyForm = { clientId: '', name: '', status: 'PENDING' as ObligationStatus, dueDate: '', assignedUserId: '' }
 const STATUS_LABEL: Record<ObligationStatus, string> = { PENDING: 'Pendiente', IN_PROGRESS: 'En progreso', DONE: 'Cumplida', OVERDUE: 'Vencida' }
 
 export default function ObligationsPage() {
+  const { profile } = useAuth()
+  const canManage = can(profile?.role, 'obligations.manage') // Supervisor, Administrador, Superusuario
   const [items, setItems] = useState<Obligation[]>([])
   const [clients, setClients] = useState<Client[]>([])
-  const [users, setUsers] = useState<AppUser[]>([])
+  const users = useUsers()
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState(emptyForm)
 
   useEffect(() => {
     const unsubO = obligationsService.subscribe((i) => { setItems(i); setLoading(false) })
     const unsubC = clientsService.subscribe(setClients)
-    const unsubU = usersService.subscribe(setUsers)
-    return () => { unsubO(); unsubC(); unsubU() }
+    return () => { unsubO(); unsubC() }
   }, [])
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? '—'
@@ -35,7 +38,7 @@ export default function ObligationsPage() {
       <h1>Obligaciones</h1>
       <p className="module-note">Estructura preliminar con datos de ejemplo — las reglas fiscales reales se integrarán más adelante.</p>
 
-      <form className="inline-form form-grid" onSubmit={handleSubmit}>
+      {canManage && <form className="inline-form form-grid" onSubmit={handleSubmit}>
         <select value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} required>
           <option value="">Cliente…</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -47,7 +50,7 @@ export default function ObligationsPage() {
           {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
         <button type="submit">Crear obligación</button>
-      </form>
+      </form>}
 
       {loading ? <p>Cargando…</p> : (
         <table className="data-table">
@@ -61,9 +64,14 @@ export default function ObligationsPage() {
                 <td>{userName(o.assignedUserId)}</td>
                 <td>{o.dueDate}</td>
                 <td>
-                  <select value={o.status} onChange={(e) => obligationsService.update(o.id, { status: e.target.value as ObligationStatus })}>
-                    {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
+                  {canManage || o.assignedUserId === profile?.id ? (
+                    <select value={o.status} onChange={(e) => obligationsService.update(o.id, { status: e.target.value as ObligationStatus })}>
+                      {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  ) : (
+                    // El Operador solo puede cambiar el estado de las obligaciones que tiene asignadas.
+                    <span className="pill neutral">{STATUS_LABEL[o.status]}</span>
+                  )}
                 </td>
               </tr>
             ))}

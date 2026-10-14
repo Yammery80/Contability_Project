@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { projectsService } from './projectsService'
 import { clientsService } from '../clients/clientsService'
 import { usersService } from '../users/usersService'
+import { useAuth } from '../../hooks/useAuth'
+import { can } from '../../services/permissions'
 import { Project, ProjectStatus, Client, AppUser } from '../../models'
 
 const emptyForm = {
@@ -14,6 +16,8 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 }
 
 export default function ProjectsPage() {
+  const { profile } = useAuth()
+  const canEdit = can(profile?.role, 'projects.edit') // solo Administrador / Superusuario
   const [projects, setProjects] = useState<Project[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [supervisors, setSupervisors] = useState<AppUser[]>([])
@@ -49,7 +53,7 @@ export default function ProjectsPage() {
     <div className="module-page">
       <h1>Proyectos</h1>
 
-      <form className="inline-form form-grid" onSubmit={handleSubmit}>
+      {canEdit && <form className="inline-form form-grid" onSubmit={handleSubmit}>
         <select value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} required>
           <option value="">Cliente…</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -67,7 +71,7 @@ export default function ProjectsPage() {
         <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
         <button type="submit">{editingId ? 'Guardar' : 'Crear proyecto'}</button>
         {editingId && <button type="button" onClick={resetForm}>Cancelar</button>}
-      </form>
+      </form>}
 
       {loading ? <p>Cargando…</p> : (
         <table className="data-table">
@@ -80,7 +84,7 @@ export default function ProjectsPage() {
                 <td>{supervisorName(p.supervisorId)}</td>
                 <td><span className={'status-pill status-' + p.status.toLowerCase()}>{STATUS_LABEL[p.status]}</span></td>
                 <td><small>{p.startDate} → {p.endDate}</small></td>
-                <td className="row-actions"><button onClick={() => handleEdit(p)}>Editar</button></td>
+                <td className="row-actions">{canEdit && <button onClick={() => handleEdit(p)}>Editar</button>}</td>
               </tr>
             ))}
           </tbody>
