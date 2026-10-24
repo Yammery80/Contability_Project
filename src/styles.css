@@ -265,3 +265,10 @@ select, input, textarea { font-family: inherit; font-size: .88rem; color: var(--
 .alert { padding: .7rem 1rem; border-radius: 8px; font-size: .88rem; margin-bottom: 1rem; }
 .alert-success { background: #d1fae5; color: #065f46; }
 .alert-error { background: #fee2e2; color: var(--danger); }
+
+/* ===== Aplicaciones a registrar ===== */
+.alert-info { background: var(--accent-soft); color: var(--primary); line-height: 1.5; }
+.alert code { background: rgba(1,7,41,.08); padding: 1px 5px; border-radius: 4px; }
+.chips-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: 1rem; font-size: .85rem; }
+.chip-btn { border: 1px solid var(--border); background: #fff; color: var(--primary); border-radius: 999px; padding: .3rem .75rem; font-size: .8rem; cursor: pointer; }
+.chip-btn:hover { background: var(--primary-soft); }

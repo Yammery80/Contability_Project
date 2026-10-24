@@ -17,6 +17,7 @@ const nav = (base: string, extra: NavItem[] = [], withClients = true): NavItem[]
   { label: 'Dashboard', to: base },
   { label: 'Tablero de tareas', to: `${base}/tasks` },
   { label: 'Registro de tiempos', to: `${base}/time-tracker` },
+  { label: 'Historial de actividades', to: `${base}/activities` },
   ...(withClients ? [{ label: 'Clientes', to: `${base}/clients` }, { label: 'Proyectos', to: `${base}/projects` }] : []),
   { label: 'Obligaciones', to: `${base}/obligations` },
   ...(withClients ? [{ label: 'Reportes', to: `${base}/reports` }] : []),
@@ -25,7 +26,10 @@ const nav = (base: string, extra: NavItem[] = [], withClients = true): NavItem[]
 ]
 
 // Superusuario y Administrador comparten menú (ambos con alcance total).
-const ADMIN_NAV = nav('/admin', [{ label: 'Usuarios', to: '/admin/users', section: 'Administración' }])
+const ADMIN_NAV = nav('/admin', [
+  { label: 'Usuarios', to: '/admin/users', section: 'Administración' },
+  { label: 'Aplicaciones', to: '/admin/tracked-apps', section: 'Administración' },
+])
 
 const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   SUPERUSER: ADMIN_NAV,

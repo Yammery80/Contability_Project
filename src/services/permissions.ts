@@ -11,9 +11,10 @@ export type Permission =
   | 'obligations.manage' // registrar y asignar obligaciones
   | 'reports.view'      // reportes
   | 'team.view'         // ver horas y avance de todo el equipo
+  | 'capture.configure' // definir qué aplicaciones registra Lea Memory
 
 const SUPERVISOR_PERMS: Permission[] = ['tasks.create', 'obligations.manage', 'reports.view', 'team.view']
-const ADMIN_PERMS: Permission[] = [...SUPERVISOR_PERMS, 'users.manage', 'clients.edit', 'projects.edit']
+const ADMIN_PERMS: Permission[] = [...SUPERVISOR_PERMS, 'users.manage', 'clients.edit', 'projects.edit', 'capture.configure']
 
 const PERMS: Record<Role, Permission[]> = {
   OPERATOR: [],
@@ -55,7 +56,7 @@ export const ROLE_SUMMARY: Record<Role, { can: string[]; cannot: string[] }> = {
     cannot: ['Crear o editar clientes y proyectos', 'Gestionar usuarios'],
   },
   ADMIN: {
-    can: ['Todo lo del Supervisor', 'Crear y editar clientes y proyectos', 'Gestionar usuarios y asignar roles'],
+    can: ['Todo lo del Supervisor', 'Crear y editar clientes y proyectos', 'Gestionar usuarios y asignar roles', 'Definir qué aplicaciones registra Lea Memory'],
     cannot: ['Crear o modificar cuentas de Superusuario'],
   },
   SUPERUSER: {

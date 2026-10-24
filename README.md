@@ -7,7 +7,7 @@ Stack: React + TypeScript + Vite + Firebase (Authentication + Firestore).
 ```bash
 npm install
 cp .env.example .env
-# Completa .env con las credenciales web de tu proyecto Firebase "hercanutrivet"
+# Completa .env con las credenciales web de tu proyecto Firebase 
 # (Configuración del proyecto → General → Tus apps → SDK de Firebase)
 npm run dev
 ```

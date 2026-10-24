@@ -9,6 +9,8 @@ import ForgotPassword from './pages/ForgotPassword'
 
 import DashboardPage from './modules/dashboards/DashboardPage'
 import UsersPage from './modules/users/UsersPage'
+import TrackedAppsPage from './modules/activities/TrackedAppsPage'
+import ActivityHistoryPage from './modules/activities/ActivityHistoryPage'
 import ClientsPage from './modules/clients/ClientsPage'
 import ProjectsPage from './modules/projects/ProjectsPage'
 import TasksPage from './modules/tasks/TasksPage'
@@ -39,6 +41,7 @@ export default function App() {
             <Route path="tasks" element={<TasksPage onlyMine />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
+            <Route path="activities" element={<ActivityHistoryPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
           </Route>
@@ -51,6 +54,7 @@ export default function App() {
             <Route path="tasks" element={<TasksPage />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
+            <Route path="activities" element={<ActivityHistoryPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
@@ -60,11 +64,13 @@ export default function App() {
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['SUPERUSER', 'ADMIN']}><AppLayout /></ProtectedRoute>}>
             <Route index element={<DashboardPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="tracked-apps" element={<TrackedAppsPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
+            <Route path="activities" element={<ActivityHistoryPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />

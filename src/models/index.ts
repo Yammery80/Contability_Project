@@ -119,3 +119,31 @@ export interface AppNotification {
   read: boolean
   createdAt: number
 }
+
+// ===== Actividad capturada (Lea Memory) =====
+// Una "actividad" es el tiempo continuo en un mismo dominio + título de página.
+export type ActivitySource = 'chrome' | 'desktop' | 'google' | 'microsoft'
+
+export interface Activity {
+  id: string
+  userId: string
+  domain: string
+  title: string
+  startTime: number // ms
+  endTime: number // ms
+  duration: number // segundos
+  source: ActivitySource
+  createdAt: number
+}
+
+// ===== Aplicación a registrar (la define el administrador) =====
+// Lea Memory solo captura actividad en los dominios de esta lista.
+// "sat.gob.mx" también cubre sus subdominios (portal.sat.gob.mx).
+export interface TrackedApp {
+  id: string
+  name: string
+  domain: string
+  active: boolean
+  createdAt: number
+  createdBy: string
+}
