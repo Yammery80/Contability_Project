@@ -75,7 +75,7 @@ export default function UsersPage() {
       if (form.password !== form.confirm) return setError('Las contraseñas no coinciden.')
 
       await createUserWithPassword(
-        { name, email, phone: form.phone.trim(), position: form.position.trim(), role: form.role, active: true, createdAt: Date.now() },
+        { name, email, phone: form.phone.trim(), position: form.position.trim(), role: form.role, active: true, createdAt: Date.now(), mustChangePassword: true },
         form.password
       )
       setNotice(`Usuario creado. ${name} ya puede iniciar sesión con ${email} y la contraseña que le asignaste.`)

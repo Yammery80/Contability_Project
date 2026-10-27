@@ -17,6 +17,7 @@ import TimeTrackerPage from './modules/timeTracker/TimeTrackerPage'
 import ObligationsPage from './modules/obligations/ObligationsPage'
 import NotificationsPage from './modules/notifications/NotificationsPage'
 import ReportsPage from './modules/reports/ReportsPage'
+import PanelUserPage from './modules/panel_user/PanelUser'
 
 function RootRedirect() {
   const { profile, loading } = useAuth()
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="time-tracker" element={<TimeTrackerPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="panel_user" element={<PanelUserPage />} />
           </Route>
 
           {/* ===== SUPERVISOR ===== */}
