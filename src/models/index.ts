@@ -14,6 +14,7 @@ export interface AppUser {
   createdAt: number
   phone?: string
   position?: string // puesto
+  mustChangePassword?: boolean
 }
 
 // ===== Cliente =====

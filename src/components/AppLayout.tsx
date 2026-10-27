@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { where } from 'firebase/firestore'
+import { where, getFirestore, doc, getDoc } from 'firebase/firestore'
 import { useAuth, homeRouteForRole } from '../hooks/useAuth'
 import { notificationsService } from '../modules/notifications/notificationsService'
 import { initials } from '../services/period'
 import { can } from '../services/permissions'
 import { Role } from '../models'
+import PanelUser  from '../modules/panel_user/PanelUser'
 
 interface NavItem {
   label: string
@@ -23,6 +24,7 @@ const nav = (base: string, extra: NavItem[] = [], withClients = true): NavItem[]
   ...(withClients ? [{ label: 'Reportes', to: `${base}/reports` }] : []),
   { label: 'Notificaciones', to: `${base}/notifications` },
   ...extra,
+  { label: 'Perfil', to: `${base}/panel_user` }
 ]
 
 // Superusuario y Administrador comparten menú (ambos con alcance total).
@@ -53,6 +55,8 @@ export default function AppLayout() {
   const { profile, logout } = useAuth()
   const navigate = useNavigate()
   const [unread, setUnread] = useState(0)
+  const [mustChangePassword, setMustChangePassword] = useState(false)
+  const [loadingCheck, setLoadingCheck] = useState(true)
 
   useEffect(() => {
     if (!profile) return
@@ -62,9 +66,49 @@ export default function AppLayout() {
     )
   }, [profile])
 
+  useEffect(() => {
+    const checkPasswordStatus = async () => {
+      if (!profile) return
+      try {
+        const db = getFirestore()
+        const userDocRef = doc(db, 'users', profile.id)
+        const userSnap = await getDoc(userDocRef)
+        
+        if (userSnap.exists()) {
+          setMustChangePassword(userSnap.data().mustChangePassword === true)
+        }
+      } catch (err) {
+        console.error('Error al verificar el estado de la contraseña:', err)
+      } finally {
+        setLoadingCheck(false)
+      }
+    }
+
+    checkPasswordStatus()
+  }, [profile])
+
   if (!profile) return null
 
-  const base = homeRouteForRole(profile.role)
+if (loadingCheck) {
+    return <div style={{ textAlign: 'center', marginTop: '50px' }}>Verificando seguridad de la cuenta...</div>
+  }
+
+if (mustChangePassword) {
+  return (
+    
+    <main className="main-content" style={{ maxWidth: '700px', margin: '40px auto', padding: '20px' }}>
+          <div className="alert alert-error" style={{ marginBottom: '20px', padding: '15px', background: '#fff3cd', color: '#856404', borderRadius: '6px' }}>
+            ⚠️ <strong>Cambio de contraseña obligatorio:</strong> Esta es una cuenta nueva. Por seguridad, debes cambiar tu contraseña temporal para poder utilizar el sistema[cite: 1].
+          </div>
+          <PanelUser 
+            isForced={true} 
+            onSuccessChange={() => setMustChangePassword(false)} 
+          />
+        </main>
+  )
+}
+
+const base = homeRouteForRole(profile.role)
   const items = NAV_BY_ROLE[profile.role]
   const canCreateTask = can(profile.role, 'tasks.create')
 
@@ -73,7 +117,7 @@ export default function AppLayout() {
     navigate('/login', { replace: true })
   }
 
-  return (
+return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
