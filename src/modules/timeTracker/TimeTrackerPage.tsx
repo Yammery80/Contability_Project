@@ -1,3 +1,5 @@
+import LateTimeInbox from './LateTimeInbox'
+import LateTimeForm from './LateTimeForm'
 import React, { useEffect, useMemo, useState } from 'react'
 import { where } from 'firebase/firestore'
 import { timeEntriesService, startOfWeek } from './timeTrackerService'
@@ -46,7 +48,8 @@ export default function TimeTrackerPage() {
 
   const [pick, setPick] = useState<PickerValue>(emptyPick)
   const [description, setDescription] = useState('')
-  const [manual, setManual] = useState({ date: '', from: '', to: '' })
+  const [sent, setSent] = useState(false)
+  const [manualPick, setManualPick] = useState<PickerValue>(emptyPick)
   const [error, setError] = useState<string | null>(null)
 
   const isOperator = profile?.role === 'OPERATOR'
@@ -84,16 +87,7 @@ export default function TimeTrackerPage() {
     setDescription('')
   }
 
-  const handleManual = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    const err = await timer.addManual(ref(), manual.date, manual.from, manual.to)
-    setError(err)
-    if (!err) {
-      setManual({ date: '', from: '', to: '' })
-      setShowManual(false)
-    }
-  }
+
 
   const remaining = Math.max(0, WEEKLY_GOAL_SECONDS - timer.weekSeconds)
   const hm = (s: number) => `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min`
@@ -152,20 +146,17 @@ export default function TimeTrackerPage() {
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
         )}
-        <button className="btn push-right" onClick={() => setShowManual((v) => !v)}>+ Registrar tiempo</button>
+        <button className="btn push-right" onClick={() => { setSent(false); setShowManual(v => !v) }}>+ Solicitar registro</button>
       </div>
 
+      {sent && <p role="status">Solicitud enviada. Las horas se sumarán al aprobarla.</p>}
       {showManual && (
-        <form className="inline-form form-grid" onSubmit={handleManual}>
-          <ActivityPicker clients={clients} projects={projects} tasks={tasks} value={pick} onChange={setPick} />
-          <input placeholder="Descripción" value={description} onChange={(e) => setDescription(e.target.value)} />
-          <input type="date" value={manual.date} onChange={(e) => setManual({ ...manual, date: e.target.value })} required />
-          <input type="time" value={manual.from} onChange={(e) => setManual({ ...manual, from: e.target.value })} required />
-          <input type="time" value={manual.to} onChange={(e) => setManual({ ...manual, to: e.target.value })} required />
-          <button type="submit">Guardar registro</button>
-        </form>
+        <LateTimeForm activity={{ ...manualPick, description: '' }} onSent={() => { setSent(true); setShowManual(false); setManualPick(emptyPick) }}>
+          <ActivityPicker clients={clients} projects={projects} tasks={tasks} value={manualPick} onChange={setManualPick} />
+        </LateTimeForm>
       )}
 
+      {profile && <LateTimeInbox key={profile.id} profile={profile} users={users} tasks={tasks} />}
       <table className="data-table">
         <thead>
           <tr><th>Fecha</th><th>Empleado</th><th>Cliente</th><th>Tarea</th><th>Tipo</th><th className="num">Horas</th></tr>

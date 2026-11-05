@@ -82,24 +82,5 @@ export function useTimer() {
     await timeEntriesService.update(active.id, { duration: elapsedOf(active), startTime: null, endTime: Date.now(), status: 'STOPPED' })
   }
 
-  // Registro manual (HU-28). date: YYYY-MM-DD, from/to: HH:MM
-  const addManual = async (ref: ActivityRef, date: string, from: string, to: string): Promise<string | null> => {
-    if (!profile) return 'Sin sesión.'
-    if (!date || !from || !to) return 'Completa fecha y horas.'
-    const s = new Date(`${date}T${from}`).getTime()
-    const e = new Date(`${date}T${to}`).getTime()
-    if (!(e > s)) return 'La hora final debe ser posterior a la inicial.'
-    await timeEntriesService.create({
-      userId: profile.id,
-      ...ref,
-      startTime: s,
-      endTime: e,
-      duration: Math.floor((e - s) / 1000),
-      type: 'MANUAL',
-      status: 'STOPPED',
-    })
-    return null
-  }
-
-  return { active, running, elapsed, weekSeconds, start, pause, resume, stop, addManual }
+  return { active, running, elapsed, weekSeconds, start, pause, resume, stop }
 }

@@ -68,12 +68,74 @@ service cloud.firestore {
       allow delete: if hasAnyRole(['ADMIN','SUPERUSER']);
     }
 
+    function reviewer() {
+      return hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']);
+    }
+
+    function validManual(e) {
+      return e.keys().hasAll(['userId','clientId','projectId','taskId','description','type','status','startTime','endTime','duration'])
+        && e.keys().size() == 10
+        && e.userId == request.auth.uid && e.type == 'MANUAL' && e.status == 'STOPPED'
+        && e.clientId is string && e.projectId is string && e.taskId is string
+        && e.description is string && e.description.matches('(?s).*[^[:space:]].*') && e.description.size() <= 1000
+        && e.startTime is int && e.endTime is int && e.startTime > 0
+        && e.endTime <= request.time.toMillis() && e.endTime > e.startTime
+        && e.duration is int && e.duration * 1000 == e.endTime - e.startTime;
+    }
+
+    function matchesApproval(id, entry) {
+      let req = getAfter(/databases/$(database)/documents/lateTimeRequests/$(id)).data;
+      return req.status == 'APPROVED' && req.reviewedAt == request.time
+        && req.reviewedBy == request.auth.uid && req.entry.userId != request.auth.uid
+        && entry.authorizationId == id && entry.diff(req.entry).affectedKeys().hasOnly(['authorizationId']);
+    }
+
+    match /lateTimeRequests/{id} {
+      allow read: if reviewer() || (isSignedIn() && isActive() && resource.data.entry.userId == request.auth.uid);
+      allow create: if isSignedIn() && isActive()
+        && request.resource.data.keys().hasOnly(['entry','reason','status','requestedAt'])
+        && validManual(request.resource.data.entry)
+        && request.resource.data.status == 'PENDING' && request.resource.data.requestedAt == request.time
+        && request.resource.data.reason is string && request.resource.data.reason.size() <= 1000
+        && request.resource.data.reason.matches('(?s).*[^[:space:]].*');
+      allow update: if reviewer() && resource.data.entry.userId != request.auth.uid
+        && resource.data.status == 'PENDING'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt'])
+        && request.resource.data.reviewedBy == request.auth.uid && request.resource.data.reviewedAt == request.time
+        && (request.resource.data.status == 'REJECTED' ||
+          (request.resource.data.status == 'APPROVED'
+           && !exists(/databases/$(database)/documents/timeEntries/$(id))
+           && getAfter(/databases/$(database)/documents/timeEntries/$(id)).data.authorizationId == id));
+    }
+
+    // El cronómetro usa milisegundos del navegador. Admitir un pequeño desfase de reloj.
+    function nearNow(ms) {
+      return ms is int && ms >= request.time.toMillis() - 60000 && ms <= request.time.toMillis() + 60000;
+    }
+
+    function timerTransition(old, next) {
+      let finishing = next.status == 'STOPPED' && nearNow(next.endTime);
+      let pausing = next.status == 'PAUSED' && next.endTime == null;
+      return next.diff(old).affectedKeys().hasOnly(['startTime','endTime','duration','status'])
+        && ((old.status == 'PAUSED' && next.status == 'RUNNING' && nearNow(next.startTime)
+             && next.duration == old.duration && next.endTime == null)
+          || (next.startTime == null && (finishing || pausing)
+              && ((old.status == 'PAUSED' && finishing && next.duration == old.duration)
+                || (old.status == 'RUNNING' && next.duration is int && next.duration >= old.duration
+                    && (next.duration - old.duration) * 1000 <= request.time.toMillis() - old.startTime + 60000))));
+    }
+
     match /timeEntries/{entryId} {
-      allow read: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']) ||
-        (isSignedIn() && isActive() && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && isActive() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']) ||
-        (isSignedIn() && isActive() && resource.data.userId == request.auth.uid);
+      allow read: if reviewer() || (isSignedIn() && isActive() && resource.data.userId == request.auth.uid);
+      allow create: if (isSignedIn() && isActive() && request.resource.data.userId == request.auth.uid
+          && request.resource.data.type == 'TIMER' && request.resource.data.status == 'RUNNING'
+          && nearNow(request.resource.data.startTime) && request.resource.data.endTime == null
+          && request.resource.data.duration == 0 && !('authorizationId' in request.resource.data))
+        || (reviewer() && matchesApproval(entryId, request.resource.data));
+      allow update: if isSignedIn() && isActive() && resource.data.userId == request.auth.uid
+        && resource.data.type == 'TIMER' && timerTransition(resource.data, request.resource.data);
+      allow delete: if !('authorizationId' in resource.data) && (reviewer()
+        || (isSignedIn() && isActive() && resource.data.userId == request.auth.uid));
     }
 
     match /obligations/{obligationId} {
