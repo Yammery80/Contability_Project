@@ -48,7 +48,10 @@ export default function NotificationsPage() {
         </ul>
       )}
       <p className="footnote">
-        Se generan al asignar una tarea, completarla o comentar en ella. Los avisos por proximidad de vencimiento y el envío por correo requieren una Cloud Function (HU-39) y aún no están activos.
+        Se generan notificaciones al asignar, completar o comentar tareas.
+        Las alertas automáticas de vencimiento están en preparación
+        y se activarán después de las pruebas y el despliegue.
+        El envío por correo aún no está habilitado.
       </p>
     </div>
   )

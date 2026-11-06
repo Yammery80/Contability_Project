@@ -1,3 +1,4 @@
+
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth, homeRouteForRole } from './hooks/useAuth'
@@ -23,7 +24,11 @@ import PanelUserPage from './modules/panel_user/PanelUser'
 
 function RootRedirect() {
   const { profile, loading } = useAuth()
-  if (loading) return <div className="page-loading">Cargando…</div>
+
+  if (loading) {
+    return <div className="page-loading">Cargando…</div>
+  }
+
   return <Navigate to={homeRouteForRole(profile?.role)} replace />
 }
 
@@ -37,7 +42,14 @@ export default function App() {
           <Route path="/" element={<RootRedirect />} />
 
           {/* ===== OPERATOR ===== */}
-          <Route path="/operator" element={<ProtectedRoute allowedRoles={['OPERATOR']}><AppLayout /></ProtectedRoute>}>
+          <Route
+            path="/operator"
+            element={
+              <ProtectedRoute allowedRoles={['OPERATOR']}>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route index element={<DashboardPage />} />
             <Route path="tasks" element={<TasksPage onlyMine />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
@@ -45,11 +57,26 @@ export default function App() {
             <Route path="activities" element={<ActivityHistoryPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
-            <Route path="panel_user" element={<PanelUserPage />} />
+            <Route
+              path="panel_user"
+              element={
+                <PanelUserPage
+                  isForced={false}
+                  onSuccessChange={() => {}}
+                />
+              }
+            />
           </Route>
 
           {/* ===== SUPERVISOR ===== */}
-          <Route path="/supervisor" element={<ProtectedRoute allowedRoles={['SUPERVISOR']}><AppLayout /></ProtectedRoute>}>
+          <Route
+            path="/supervisor"
+            element={
+              <ProtectedRoute allowedRoles={['SUPERVISOR']}>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route index element={<DashboardPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
@@ -62,8 +89,15 @@ export default function App() {
             <Route path="notifications" element={<NotificationsPage />} />
           </Route>
 
-          {/* ===== ADMIN (Superusuario + Administrador) ===== */}
-          <Route path="/admin" element={<ProtectedRoute allowedRoles={['SUPERUSER', 'ADMIN']}><AppLayout /></ProtectedRoute>}>
+          {/* ===== ADMIN ===== */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['SUPERUSER', 'ADMIN']}>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route index element={<DashboardPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="tracked-apps" element={<TrackedAppsPage />} />

@@ -77,6 +77,13 @@ export interface Task {
   estimatedHours?: number
   subtasks?: Subtask[]
   comments?: TaskComment[]
+  completedAt?: number
+  completedBy?: string
+  completionHistory?: {
+    userId: string
+    userName: string
+    completedAt: number
+  }[]
 }
 
 // ===== Registro de tiempo =====

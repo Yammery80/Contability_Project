@@ -9,7 +9,6 @@ import { timeEntriesService } from '../timeTracker/timeTrackerService'
 import { useTimer } from '../timeTracker/useTimer'
 import { useUsers } from '../users/useUsers'
 import { useAuth, homeRouteForRole } from '../../hooks/useAuth'
-import { notifyUser } from '../../services/notify'
 import { formatClock, formatHours } from '../../services/billing'
 import { initials, timeAgo } from '../../services/period'
 import { Task, TaskStatus, TaskPriority, Project, Client, TimeEntry } from '../../models'
@@ -74,17 +73,42 @@ export default function TaskDetailPage() {
   const save = (patch: Partial<Task>) => tasksService.update(task.id, patch)
 
   const changeStatus = async (status: TaskStatus) => {
-    await save({ status })
-    if (status === 'COMPLETED' && project?.supervisorId && project.supervisorId !== profile.id) {
-      await notifyUser(project.supervisorId, `La tarea "${task.title}" fue marcada como completada`, `${client?.name ?? ''} · por ${profile.name}`)
+    if (!task || status === task.status) return
+
+    try {
+      const patch: Partial<Task> = { status }
+
+      if (status === 'COMPLETED') {
+        const now = Date.now()
+
+        patch.completedAt = now
+        patch.completedBy = profile.id
+        patch.completionHistory = [
+          ...(task.completionHistory ?? []),
+          {
+            userId: profile.id,
+            userName: profile.name,
+            completedAt: now
+          }
+        ]
+      } else if (task.status === 'COMPLETED') {
+        // Conservamos el historial de finalizaciones anteriores.
+        patch.completedAt = 0
+        patch.completedBy = ''
+      }
+
+      await save(patch)
+    } catch (error) {
+      console.error('Error al actualizar estado:', error)
+      alert('No se pudo actualizar el estado de la tarea.')
     }
   }
 
   const changeAssignee = async (userId: string) => {
-    await save({ assignedUserId: userId, assignedBy: profile.id })
-    if (userId && userId !== profile.id) {
-      await notifyUser(userId, `Se te asignó la tarea "${task.title}"`, `Cliente: ${client?.name ?? '—'}`)
-    }
+    await save({
+      assignedUserId: userId,
+      assignedBy: profile.id
+    })
   }
 
   const toggleSubtask = (id: string) => save({ subtasks: subtasks.map((s) => (s.id === id ? { ...s, done: !s.done } : s)) })
@@ -99,11 +123,21 @@ export default function TaskDetailPage() {
   const addComment = async () => {
     const text = commentText.trim()
     if (!text) return
-    await save({ comments: [...comments, { id: newId(), userId: profile.id, userName: profile.name, text, createdAt: Date.now() }] })
+
+    await save({
+      comments: [
+        ...comments,
+        {
+          id: newId(),
+          userId: profile.id,
+          userName: profile.name,
+          text,
+          createdAt: Date.now()
+        }
+      ]
+    })
+
     setCommentText('')
-    if (task.assignedUserId && task.assignedUserId !== profile.id) {
-      await notifyUser(task.assignedUserId, `${profile.name} comentó en "${task.title}"`, text.slice(0, 120))
-    }
   }
 
   const startEdit = () => { setDraft({ title: task.title, description: task.description }); setEditing(true) }
@@ -238,6 +272,34 @@ export default function TaskDetailPage() {
               <label>Horas estimadas</label>
               <input type="number" min="0" step="0.5" value={task.estimatedHours ?? 0} disabled={isOperator} onChange={(e) => save({ estimatedHours: Number(e.target.value) })} />
             </div>
+          </div>
+
+          <div className="card">
+            <h2>Historial de finalización</h2>
+
+            {!task.completionHistory?.length ? (
+              <p className="module-note">
+                Esta tarea todavía no tiene finalizaciones registradas.
+              </p>
+            ) : (
+              <div className="stack">
+                {[...task.completionHistory]
+                  .sort((a, b) => b.completedAt - a.completedAt)
+                  .map((entry, index) => (
+                    <div className="detail-row" key={`${entry.completedAt}-${index}`}>
+                      <div>
+                        <strong>{entry.userName}</strong>
+                        <p className="module-note">
+                          Marcó la tarea como completada
+                        </p>
+                      </div>
+                      <small>
+                        {new Date(entry.completedAt).toLocaleString('es-MX')}
+                      </small>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
 
           <div className="card">
