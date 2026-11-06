@@ -14,7 +14,6 @@ export interface AppUser {
   createdAt: number
   phone?: string
   position?: string // puesto
-  mustChangePassword?: boolean
 }
 
 // ===== Cliente =====
@@ -80,7 +79,8 @@ export interface Task {
 }
 
 // ===== Registro de tiempo =====
-export type TimeEntryType = 'TIMER' | 'MANUAL'
+// LEA_MEMORY: registro creado al aprobar una sugerencia de horas (HU-65).
+export type TimeEntryType = 'TIMER' | 'MANUAL' | 'LEA_MEMORY'
 
 export interface TimeEntry {
   id: string
@@ -147,4 +147,36 @@ export interface TrackedApp {
   active: boolean
   createdAt: number
   createdBy: string
+}
+
+// ===== Configuración personal de captura (Lea Memory) =====
+// Documento captureSettings/{uid}. Lo edita cada colaborador y lo lee su extensión de Chrome.
+export interface CaptureSettings {
+  userId: string
+  excludedDomains: string[] // HU-58: dominios que nunca se registran
+  updatedAt: number
+}
+
+// ===== Sugerencia de horas (Lea Memory) =====
+// Un bloque de trabajo armado a partir de actividades capturadas. Todavía no es un registro de tiempo
+// oficial: la persona la revisa, elige el cliente y la aprueba (HU-62 y HU-65).
+export type SuggestionStatus = 'PENDING' | 'APPROVED' | 'DISCARDED'
+
+export interface TimeSuggestion {
+  id: string
+  userId: string
+  activityIds: string[] // actividades de origen (colección "activities")
+  startTime: number // ms: inicio de la primera actividad
+  endTime: number // ms: fin de la última actividad
+  duration: number // segundos: suma de las actividades, sin huecos ni tiempo inactivo
+  clientId: string // se elige a mano al revisar la sugerencia ('' = por asignar)
+  projectId: string
+  taskId: string
+  description: string
+  status: SuggestionStatus
+  createdAt: number
+  timeEntryId?: string // registro de tiempo oficial que se creó al aprobarla
+  approvedAt?: number
+  rejectReason?: string // motivo, cuando se rechaza
+  rejectedAt?: number
 }

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { where } from 'firebase/firestore'
 import { timeEntriesService, startOfWeek } from './timeTrackerService'
-import { useTimer } from './useTimer'
+import { useTimer, isUnassigned } from './useTimer'
+import StopTimerModal from './StopTimerModal'
 import ActivityPicker, { PickerValue } from './ActivityPicker'
 import { clientsService } from '../clients/clientsService'
 import { projectsService } from '../projects/projectsService'
@@ -43,6 +44,7 @@ export default function TimeTrackerPage() {
   const [week, setWeek] = useState(String(startOfWeek()))
   const [employee, setEmployee] = useState('')
   const [showManual, setShowManual] = useState(false)
+  const [stopOpen, setStopOpen] = useState(false)
 
   const [pick, setPick] = useState<PickerValue>(emptyPick)
   const [description, setDescription] = useState('')
@@ -128,7 +130,7 @@ export default function TimeTrackerPage() {
                 {timer.running
                   ? <button className="btn btn-ghost" onClick={timer.pause}>⏸ Pausar</button>
                   : <button className="btn btn-ghost" onClick={timer.resume}>▶ Reanudar</button>}
-                <button className="btn btn-danger" onClick={timer.stop}>⏹ Detener</button>
+                <button className="btn btn-danger" onClick={() => (isUnassigned(timer.active) ? setStopOpen(true) : timer.stop())}>⏹ Detener</button>
               </div>
             </div>
           ) : (
@@ -141,6 +143,8 @@ export default function TimeTrackerPage() {
           {error && <p className="form-error" style={{ marginTop: '.6rem' }}>{error}</p>}
         </div>
       </div>
+
+      {stopOpen && <StopTimerModal timer={timer} onClose={() => setStopOpen(false)} />}
 
       <div className="toolbar">
         <select value={week} onChange={(e) => setWeek(e.target.value)}>

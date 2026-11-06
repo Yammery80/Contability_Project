@@ -11,6 +11,8 @@ import DashboardPage from './modules/dashboards/DashboardPage'
 import UsersPage from './modules/users/UsersPage'
 import TrackedAppsPage from './modules/activities/TrackedAppsPage'
 import ActivityHistoryPage from './modules/activities/ActivityHistoryPage'
+import CaptureSettingsPage from './modules/activities/CaptureSettingsPage'
+import SuggestionsPage from './modules/suggestions/SuggestionsPage'
 import ClientsPage from './modules/clients/ClientsPage'
 import ProjectsPage from './modules/projects/ProjectsPage'
 import TasksPage from './modules/tasks/TasksPage'
@@ -19,7 +21,6 @@ import TimeTrackerPage from './modules/timeTracker/TimeTrackerPage'
 import ObligationsPage from './modules/obligations/ObligationsPage'
 import NotificationsPage from './modules/notifications/NotificationsPage'
 import ReportsPage from './modules/reports/ReportsPage'
-import PanelUserPage from './modules/panel_user/PanelUser'
 
 function RootRedirect() {
   const { profile, loading } = useAuth()
@@ -43,9 +44,10 @@ export default function App() {
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
             <Route path="activities" element={<ActivityHistoryPage />} />
+            <Route path="suggestions" element={<SuggestionsPage />} />
+            <Route path="capture" element={<CaptureSettingsPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
-            <Route path="panel_user" element={<PanelUserPage />} />
           </Route>
 
           {/* ===== SUPERVISOR ===== */}
@@ -57,6 +59,8 @@ export default function App() {
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
             <Route path="activities" element={<ActivityHistoryPage />} />
+            <Route path="suggestions" element={<SuggestionsPage />} />
+            <Route path="capture" element={<CaptureSettingsPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
@@ -73,6 +77,8 @@ export default function App() {
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
             <Route path="activities" element={<ActivityHistoryPage />} />
+            <Route path="suggestions" element={<SuggestionsPage />} />
+            <Route path="capture" element={<CaptureSettingsPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
