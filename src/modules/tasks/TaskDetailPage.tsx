@@ -1,3 +1,4 @@
+import LateTimeForm from '../timeTracker/LateTimeForm'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { where } from 'firebase/firestore'
@@ -32,7 +33,7 @@ export default function TaskDetailPage() {
   const [newSubtask, setNewSubtask] = useState('')
   const [commentText, setCommentText] = useState('')
   const [showManual, setShowManual] = useState(false)
-  const [manual, setManual] = useState({ date: '', from: '', to: '' })
+  const [sent, setSent] = useState(false)
   const [timerError, setTimerError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -114,12 +115,7 @@ export default function TaskDetailPage() {
   const otherActive = !!timer.active && !mine
 
   const handleStart = async () => setTimerError(await timer.start(activity))
-  const handleManual = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const err = await timer.addManual(activity, manual.date, manual.from, manual.to)
-    setTimerError(err)
-    if (!err) { setManual({ date: '', from: '', to: '' }); setShowManual(false) }
-  }
+
 
   const due = task.dueDate ? new Date(task.dueDate + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '') : 'sin fecha'
 
@@ -153,17 +149,13 @@ export default function TaskDetailPage() {
               ) : (
                 <button className="btn" onClick={handleStart} disabled={otherActive}>▶ Iniciar</button>
               )}
-              <button className="btn btn-ghost" onClick={() => setShowManual((v) => !v)}>Registro manual</button>
+              <button className="btn btn-ghost" onClick={() => { setSent(false); setShowManual(v => !v) }}>Solicitar registro</button>
             </div>
             {otherActive && <p className="timer-note">Tienes un cronómetro en curso en otra actividad. Detenlo para iniciar este.</p>}
             {timerError && <p className="timer-note" style={{ color: 'var(--danger)' }}>{timerError}</p>}
-            {showManual && (
-              <form className="manual-form" onSubmit={handleManual}>
-                <input type="date" value={manual.date} onChange={(e) => setManual({ ...manual, date: e.target.value })} required />
-                <input type="time" value={manual.from} onChange={(e) => setManual({ ...manual, from: e.target.value })} required />
-                <input type="time" value={manual.to} onChange={(e) => setManual({ ...manual, to: e.target.value })} required />
-                <button className="btn btn-sm" type="submit">Guardar</button>
-              </form>
+            {sent && <p role="status">Solicitud enviada. Las horas se sumarán al aprobarla.</p>}
+      {showManual && (
+        <LateTimeForm activity={activity} onSent={() => { setSent(true); setShowManual(false) }} />
             )}
           </div>
 
