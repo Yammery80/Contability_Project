@@ -3,7 +3,9 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../../firebase/config'
 import type { ActivityRef } from './useTimer'
 
-export default function LateTimeForm({ activity, children, onSent }: {
+export default function LateTimeForm({ activity, children, onSent, title = 'Solicitar registro de tiempo', onCancel }: {
+  title?: string
+  onCancel?: () => void
   activity: ActivityRef
   children?: React.ReactNode
   onSent: () => void
@@ -41,7 +43,7 @@ export default function LateTimeForm({ activity, children, onSent }: {
   }
 
   return <form className="card" style={{maxWidth: 520, display: 'grid', gap: 12}} onSubmit={submit}>
-    <h2>Solicitar registro de tiempo</h2>
+    <h2>{title}</h2>
     <strong>{minutes > 0 ? Math.floor(minutes / 60) + ' h ' + minutes % 60 + ' min' : '0 h 0 min'}</strong>
     {children}
     <label>Fecha de la actividad <input required type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
@@ -51,5 +53,6 @@ export default function LateTimeForm({ activity, children, onSent }: {
     <label>¿Por qué faltó el registro en tiempo real? <textarea required maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></label>
     {error && <p role="alert">{error}</p>}
     <button disabled={busy}>{busy ? 'Enviando…' : 'Enviar solicitud'}</button>
+    {onCancel && <button className="btn btn-ghost" type="button" disabled={busy} onClick={onCancel}>Cancelar</button>}
   </form>
 }

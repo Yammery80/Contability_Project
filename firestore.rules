@@ -40,7 +40,11 @@ service cloud.firestore {
       allow create: if hasAnyRole(['SUPERUSER'])
         || (hasAnyRole(['ADMIN']) && request.resource.data.role != 'SUPERUSER');
 
-      allow update: if hasAnyRole(['SUPERUSER'])
+      allow update: if (isSignedIn() && isActive() && request.auth.uid == userId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','phone','position','mustChangePassword'])
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['mustChangePassword'])
+                || request.resource.data.mustChangePassword == false))
+        || hasAnyRole(['SUPERUSER'])
         || (hasAnyRole(['ADMIN'])
             && resource.data.role != 'SUPERUSER'
             && request.resource.data.role != 'SUPERUSER');
@@ -77,7 +81,7 @@ service cloud.firestore {
         && e.keys().size() == 10
         && e.userId == request.auth.uid && e.type == 'MANUAL' && e.status == 'STOPPED'
         && e.clientId is string && e.projectId is string && e.taskId is string
-        && e.description is string && e.description.matches('(?s).*[^[:space:]].*') && e.description.size() <= 1000
+        && e.description is string && e.description.size() <= 1000
         && e.startTime is int && e.endTime is int && e.startTime > 0
         && e.endTime <= request.time.toMillis() && e.endTime > e.startTime
         && e.duration is int && e.duration * 1000 == e.endTime - e.startTime;
@@ -93,11 +97,14 @@ service cloud.firestore {
     match /lateTimeRequests/{id} {
       allow read: if reviewer() || (isSignedIn() && isActive() && resource.data.entry.userId == request.auth.uid);
       allow create: if isSignedIn() && isActive()
-        && request.resource.data.keys().hasOnly(['entry','reason','status','requestedAt'])
         && validManual(request.resource.data.entry)
         && request.resource.data.status == 'PENDING' && request.resource.data.requestedAt == request.time
-        && request.resource.data.reason is string && request.resource.data.reason.size() <= 1000
-        && request.resource.data.reason.matches('(?s).*[^[:space:]].*');
+        && ((request.resource.data.keys().hasOnly(['entry','kind','status','requestedAt'])
+             && request.resource.data.get('kind', '') == 'STANDARD')
+          || (request.resource.data.keys().hasOnly(['entry','reason','status','requestedAt'])
+              && request.resource.data.entry.description.matches('(?s).*[^[:space:]].*')
+              && request.resource.data.reason is string && request.resource.data.reason.size() <= 1000
+              && request.resource.data.reason.matches('(?s).*[^[:space:]].*')));
       allow update: if reviewer() && resource.data.entry.userId != request.auth.uid
         && resource.data.status == 'PENDING'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedBy','reviewedAt'])
@@ -161,6 +168,32 @@ service cloud.firestore {
         && request.resource.data.level in ['INFO','WARNING','URGENT']
         && request.resource.data.read == false;
 
+      allow delete: if hasAnyRole(['ADMIN','SUPERUSER']);
+    }
+
+    match /activities/{activityId} {
+      allow read, delete: if isSignedIn() && isActive() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isActive()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['userId','domain','title','startTime','endTime','duration','source','createdAt'])
+        && request.resource.data.domain is string && request.resource.data.domain.size() <= 255
+        && request.resource.data.title is string && request.resource.data.title.size() <= 500
+        && request.resource.data.startTime is number && request.resource.data.endTime is number
+        && request.resource.data.duration is number
+        && request.resource.data.source in ['chrome','desktop','google','microsoft'];
+      allow update: if isSignedIn() && isActive()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.keys().hasOnly(['userId','domain','title','startTime','endTime','duration','source','createdAt']);
+    }
+
+    match /trackedApps/{appId} {
+      allow read: if isSignedIn() && isActive();
+      allow create, update: if hasAnyRole(['ADMIN','SUPERUSER'])
+        && request.resource.data.keys().hasOnly(['name','domain','active','createdAt','createdBy'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 255
+        && request.resource.data.domain is string && request.resource.data.domain.size() <= 255
+        && request.resource.data.active is bool;
       allow delete: if hasAnyRole(['ADMIN','SUPERUSER']);
     }
   }

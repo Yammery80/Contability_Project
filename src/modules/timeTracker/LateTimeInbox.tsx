@@ -6,7 +6,8 @@ import type { AppUser, Task, TimeEntry } from '../../models'
 interface RequestRow {
   id: string
   entry: Omit<TimeEntry, 'id'>
-  reason: string
+  kind?: 'STANDARD'
+  reason?: string
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   requestedAt: Timestamp | null
   reviewedBy?: string
@@ -50,10 +51,10 @@ export default function LateTimeInbox({ profile, users, tasks }: { profile: AppU
     {error && <p role="alert">{error}</p>}
     {!rows.length && !error && <p>Sin solicitudes.</p>}
     {rows.map(r => <article key={r.id}>
-      <h3>{r.entry.description} · {labels[r.status]}</h3>
+      <h3>{r.entry.description || 'Registro de tiempo'} · {labels[r.status]}</h3>
       <p>{name(r.entry.userId)} · {new Date(r.entry.startTime!).toLocaleString('es-MX')} a {new Date(r.entry.endTime!).toLocaleTimeString('es-MX')} · {r.entry.duration / 60} min</p>
       {r.entry.taskId && <p>Tarea: {tasks.find(t => t.id === r.entry.taskId)?.title ?? r.entry.taskId}</p>}
-      <p>Motivo: {r.reason}</p>
+      {r.kind === 'STANDARD' ? <p>Solicitud de registro</p> : <p>Motivo del registro extemporáneo: {r.reason}</p>}
       {r.reviewedBy && <p>Revisó {name(r.reviewedBy)} · {r.reviewedAt?.toDate().toLocaleString('es-MX')}</p>}
       {review && r.entry.userId !== profile.id && r.status === 'PENDING' && <div className="timer-actions">
         <button disabled={Boolean(busy)} onClick={() => decide(r.id, true)}>Aprobar</button>
