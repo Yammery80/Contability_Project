@@ -23,7 +23,7 @@ const nav = (base: string, extra: NavItem[] = [], withClients = true): NavItem[]
   { label: 'Sugerencias de horas', to: `${base}/suggestions` },
   { label: 'Mi captura', to: `${base}/capture` },
   ...(withClients ? [{ label: 'Clientes', to: `${base}/clients` }, { label: 'Proyectos', to: `${base}/projects` }] : []),
-  { label: 'Obligaciones', to: `${base}/obligations` },
+  { label: 'Obligaciones fiscales', to: `${base}/obligations` },
   { label: 'Calendario fiscal', to: `${base}/calendar` },
   ...(withClients ? [{ label: 'Reportes', to: `${base}/reports` }] : []),
   { label: 'Notificaciones', to: `${base}/notifications` },
