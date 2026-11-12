@@ -1,4 +1,5 @@
 import './taskDetailPage.css'
+import LateTimeForm from '../timeTracker/LateTimeForm'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { where } from 'firebase/firestore'
@@ -10,6 +11,7 @@ import { timeEntriesService } from '../timeTracker/timeTrackerService'
 import { useTimer } from '../timeTracker/useTimer'
 import { useUsers } from '../users/useUsers'
 import { useAuth, homeRouteForRole } from '../../hooks/useAuth'
+import { notifyUser } from '../../services/notify'
 import { formatClock, formatHours } from '../../services/billing'
 import { initials, timeAgo } from '../../services/period'
 import { Task, TaskStatus, TaskPriority, Project, Client, TimeEntry } from '../../models'
@@ -32,7 +34,7 @@ export default function TaskDetailPage() {
   const [newSubtask, setNewSubtask] = useState('')
   const [commentText, setCommentText] = useState('')
   const [showManual, setShowManual] = useState(false)
-  const [manual, setManual] = useState({ date: '', from: '', to: '' })
+  const [sent, setSent] = useState(false)
   const [timerError, setTimerError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -99,6 +101,13 @@ export default function TaskDetailPage() {
       }
 
       await save(patch)
+      if (status === 'COMPLETED' && project?.supervisorId && project.supervisorId !== profile.id) {
+        try {
+          await notifyUser(project.supervisorId, `La tarea "${task.title}" fue marcada como completada`, `${client?.name ?? ''} · por ${profile.name}`)
+        } catch (notifyError) {
+          console.error('No se pudo enviar la notificación de finalización:', notifyError)
+        }
+      }
     } catch (error) {
       console.error('Error al actualizar estado:', error)
       alert('No se pudo actualizar el estado de la tarea.')
@@ -110,6 +119,13 @@ export default function TaskDetailPage() {
       assignedUserId: userId,
       assignedBy: profile.id
     })
+    if (userId && userId !== profile.id) {
+      try {
+        await notifyUser(userId, `Se te asignó la tarea "${task.title}"`, `Cliente: ${client?.name ?? '—'}`)
+      } catch (notifyError) {
+        console.error('No se pudo enviar la notificación de asignación:', notifyError)
+      }
+    }
   }
 
   const toggleSubtask = (id: string) => save({ subtasks: subtasks.map((s) => (s.id === id ? { ...s, done: !s.done } : s)) })
@@ -139,6 +155,13 @@ export default function TaskDetailPage() {
     })
 
     setCommentText('')
+    if (task.assignedUserId && task.assignedUserId !== profile.id) {
+      try {
+        await notifyUser(task.assignedUserId, `${profile.name} comentó en "${task.title}"`, text.slice(0, 120))
+      } catch (notifyError) {
+        console.error('No se pudo enviar la notificación del comentario:', notifyError)
+      }
+    }
   }
 
   const startEdit = () => { setDraft({ title: task.title, description: task.description }); setEditing(true) }
@@ -149,13 +172,6 @@ export default function TaskDetailPage() {
   const otherActive = !!timer.active && !mine
 
   const handleStart = async () => setTimerError(await timer.start(activity))
-  const handleManual = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const err = await timer.addManual(activity, manual.date, manual.from, manual.to)
-    setTimerError(err)
-    if (!err) { setManual({ date: '', from: '', to: '' }); setShowManual(false) }
-  }
-
   const due = task.dueDate ? new Date(task.dueDate + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '') : 'sin fecha'
 
   const today = new Date()
@@ -240,17 +256,13 @@ export default function TaskDetailPage() {
               ) : (
                 <button className="btn" onClick={handleStart} disabled={otherActive}>▶ Iniciar</button>
               )}
-              <button className="btn btn-ghost" onClick={() => setShowManual((v) => !v)}>Registro manual</button>
+              <button className="btn btn-ghost" onClick={() => { setSent(false); setShowManual(v => !v) }}>Solicitar registro</button>
             </div>
             {otherActive && <p className="timer-note">Tienes un cronómetro en curso en otra actividad. Detenlo para iniciar este.</p>}
             {timerError && <p className="timer-note" style={{ color: 'var(--danger)' }}>{timerError}</p>}
+            {sent && <p role="status">Solicitud enviada. Las horas se sumarán al aprobarla.</p>}
             {showManual && (
-              <form className="manual-form" onSubmit={handleManual}>
-                <input type="date" value={manual.date} onChange={(e) => setManual({ ...manual, date: e.target.value })} required />
-                <input type="time" value={manual.from} onChange={(e) => setManual({ ...manual, from: e.target.value })} required />
-                <input type="time" value={manual.to} onChange={(e) => setManual({ ...manual, to: e.target.value })} required />
-                <button className="btn btn-sm" type="submit">Guardar</button>
-              </form>
+              <LateTimeForm activity={activity} onSent={() => { setSent(true); setShowManual(false) }} />
             )}
           </div>
 

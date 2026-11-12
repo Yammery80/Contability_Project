@@ -11,17 +11,25 @@ export interface ActivityRef {
   description: string
 }
 
+// Un cronómetro sin cliente, proyecto ni tarea (p. ej. iniciado con el botón "Iniciar ahora").
+export const isUnassigned = (e: TimeEntry | null): boolean => !!e && !e.clientId && !e.projectId && !e.taskId
+
 // Cronómetro del usuario en sesión. El tiempo se calcula a partir de
 // startTime guardado en Firestore, así sobrevive a cerrar el navegador.
-export function useTimer() {
+// activeOnly: solo escucha el cronómetro en curso (más ligero; lo usa la barra superior,
+// que está en todas las pantallas). Sin esa opción también calcula las horas de la semana.
+export function useTimer({ activeOnly = false }: { activeOnly?: boolean } = {}) {
   const { profile } = useAuth()
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
     if (!profile) return
-    return timeEntriesService.subscribe(setEntries, [where('userId', '==', profile.id)])
-  }, [profile])
+    const constraints = activeOnly
+      ? [where('userId', '==', profile.id), where('status', 'in', ['RUNNING', 'PAUSED'])]
+      : [where('userId', '==', profile.id)]
+    return timeEntriesService.subscribe(setEntries, constraints)
+  }, [profile, activeOnly])
 
   // Cronómetro en curso O pausado (HU-24: solo uno a la vez).
   const active = useMemo(() => entries.find((e) => e.status === 'RUNNING' || e.status === 'PAUSED') ?? null, [entries])
@@ -82,6 +90,12 @@ export function useTimer() {
     await timeEntriesService.update(active.id, { duration: elapsedOf(active), startTime: null, endTime: Date.now(), status: 'STOPPED' })
   }
 
+  // Detiene y, en el mismo paso, asigna cliente, proyecto, tarea y descripción.
+  const stopAndAssign = async (ref: ActivityRef) => {
+    if (!active) return
+    await timeEntriesService.update(active.id, { ...ref, duration: elapsedOf(active), startTime: null, endTime: Date.now(), status: 'STOPPED' })
+  }
+
   // Registro manual (HU-28). date: YYYY-MM-DD, from/to: HH:MM
   const addManual = async (ref: ActivityRef, date: string, from: string, to: string): Promise<string | null> => {
     if (!profile) return 'Sin sesión.'
@@ -101,5 +115,5 @@ export function useTimer() {
     return null
   }
 
-  return { active, running, elapsed, weekSeconds, start, pause, resume, stop, addManual }
+  return { active, running, elapsed, weekSeconds, start, pause, resume, stop, stopAndAssign, addManual }
 }

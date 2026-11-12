@@ -32,7 +32,16 @@ export default function ActivityPicker({ clients, projects, tasks, value, onChan
         <option value="">Proyecto…</option>
         {projectOptions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
       </select>
-      <select value={value.taskId} onChange={(e) => onChange({ ...value, taskId: e.target.value })}>
+      <select
+        value={value.taskId}
+        onChange={(e) => {
+          const task = tasks.find((t) => t.id === e.target.value)
+          if (!task) return onChange({ ...value, taskId: '' })
+          // Elegir una tarea completa su proyecto y su cliente, para que siempre correspondan.
+          const project = projects.find((p) => p.id === task.projectId)
+          onChange({ clientId: project?.clientId ?? value.clientId, projectId: task.projectId, taskId: task.id })
+        }}
+      >
         <option value="">Tarea (opcional)…</option>
         {taskOptions.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
       </select>

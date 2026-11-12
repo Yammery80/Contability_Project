@@ -5,8 +5,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { initials } from "../../services/period";
 
 interface PanelUserProps {
-  isForced: boolean;
-  onSuccessChange: () => void;
+  isForced?: boolean;
+  onSuccessChange?: () => void;
 }
 
 export default function PanelUser({ isForced, onSuccessChange }: PanelUserProps) {
