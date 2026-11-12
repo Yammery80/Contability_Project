@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth, homeRouteForRole } from './hooks/useAuth'
@@ -15,12 +14,15 @@ import ActivityHistoryPage from './modules/activities/ActivityHistoryPage'
 import ClientsPage from './modules/clients/ClientsPage'
 import ProjectsPage from './modules/projects/ProjectsPage'
 import TasksPage from './modules/tasks/TasksPage'
+import KanbanPage from './modules/tasks/KanbanPage'
 import TaskDetailPage from './modules/tasks/TaskDetailPage'
 import TimeTrackerPage from './modules/timeTracker/TimeTrackerPage'
 import ObligationsPage from './modules/obligations/ObligationsPage'
 import NotificationsPage from './modules/notifications/NotificationsPage'
 import ReportsPage from './modules/reports/ReportsPage'
 import PanelUserPage from './modules/panel_user/PanelUser'
+import FiscalCalendarPage from './modules/calendar/FiscalCalendarPage'
+
 
 function RootRedirect() {
   const { profile, loading } = useAuth()
@@ -52,10 +54,12 @@ export default function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="tasks" element={<TasksPage onlyMine />} />
+            <Route path="kanban" element={<KanbanPage onlyMine />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
             <Route path="activities" element={<ActivityHistoryPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
+            <Route path="calendar" element={<FiscalCalendarPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
             <Route
               path="panel_user"
@@ -81,10 +85,12 @@ export default function App() {
             <Route path="clients" element={<ClientsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="tasks" element={<TasksPage />} />
+            <Route path="kanban" element={<KanbanPage />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
             <Route path="activities" element={<ActivityHistoryPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
+            <Route path="calendar" element={<FiscalCalendarPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
           </Route>
@@ -104,10 +110,12 @@ export default function App() {
             <Route path="clients" element={<ClientsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="tasks" element={<TasksPage />} />
+            <Route path="kanban" element={<KanbanPage />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
             <Route path="time-tracker" element={<TimeTrackerPage />} />
             <Route path="activities" element={<ActivityHistoryPage />} />
             <Route path="obligations" element={<ObligationsPage />} />
+            <Route path="calendar" element={<FiscalCalendarPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
           </Route>

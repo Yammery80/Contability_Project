@@ -1,3 +1,4 @@
+import './taskDetailPage.css'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { where } from 'firebase/firestore'
@@ -58,7 +59,7 @@ export default function TaskDetailPage() {
   const base = homeRouteForRole(profile.role)
   const back = <Link className="back-link" to={`${base}/tasks`}>← Volver al tablero</Link>
 
-  if (task === undefined) return <div className="module-page">{back}<p>Cargando…</p></div>
+  if (task === undefined) return <div className="module-page task-detail-enhanced">{back}<p>Cargando…</p></div>
   if (task === null) return <div className="module-page">{back}<p>La tarea no existe o no tienes acceso a ella.</p></div>
 
   const isOperator = profile.role === 'OPERATOR'
@@ -157,6 +158,34 @@ export default function TaskDetailPage() {
 
   const due = task.dueDate ? new Date(task.dueDate + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '') : 'sin fecha'
 
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const deadline = task.dueDate
+    ? new Date(task.dueDate + 'T00:00:00')
+    : null
+
+  const daysLeft = deadline
+    ? Math.round((deadline.getTime() - today.getTime()) / 86400000)
+    : null
+
+  const deadlineLevel =
+    task.status === 'COMPLETED' ? 'completed'
+    : daysLeft === null ? 'neutral'
+    : daysLeft < 0 ? 'overdue'
+    : daysLeft <= 3 ? 'danger'
+    : daysLeft <= 7 ? 'warning'
+    : 'safe'
+
+  const deadlineLabel =
+    task.status === 'COMPLETED' ? 'Completada'
+    : daysLeft === null ? 'Sin fecha límite'
+    : daysLeft < 0 ? 'Vencida'
+    : daysLeft === 0 ? 'Vence hoy'
+    : daysLeft <= 3 ? 'Urgente'
+    : daysLeft <= 7 ? 'Próxima a vencer'
+    : 'En tiempo'
+
   return (
     <div className="module-page">
       {back}
@@ -170,6 +199,30 @@ export default function TaskDetailPage() {
         {client?.name ?? '—'} · Asignada a {userName(task.assignedUserId)} · <span className={isOverdue(task) ? 'overdue' : ''}>Vence {due}</span>
         {task.assignedBy && task.assignedBy !== task.assignedUserId && <> · Asignada por {userName(task.assignedBy)}</>}
       </p>
+
+      <div className="task-detail-summary">
+        <div className="task-detail-stat">
+          <span className="task-detail-stat-label">Estado</span>
+          <strong>{STATUS_LABEL[task.status]}</strong>
+        </div>
+
+        <div className="task-detail-stat">
+          <span className="task-detail-stat-label">Prioridad</span>
+          <span className={'priority-pill priority-' + task.priority.toLowerCase()}>
+            {PRIORITY_LABEL[task.priority]}
+          </span>
+        </div>
+
+        <div className={`task-detail-stat task-detail-semaphore ${deadlineLevel}`}>
+          <span className="task-detail-stat-label">Semáforo de vencimiento</span>
+          <strong>{deadlineLabel}</strong>
+        </div>
+
+        <div className="task-detail-stat">
+          <span className="task-detail-stat-label">Horas estimadas</span>
+          <strong>{task.estimatedHours ?? 0} h</strong>
+        </div>
+      </div>
 
       <div className="task-layout">
         <div className="stack">
@@ -274,7 +327,7 @@ export default function TaskDetailPage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card task-detail-history">
             <h2>Historial de finalización</h2>
 
             {!task.completionHistory?.length ? (

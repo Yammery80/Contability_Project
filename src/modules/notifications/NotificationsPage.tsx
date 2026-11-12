@@ -48,10 +48,12 @@ export default function NotificationsPage() {
         </ul>
       )}
       <p className="footnote">
-        Se generan notificaciones al asignar, completar o comentar tareas.
-        Las alertas automáticas de vencimiento están en preparación
-        y se activarán después de las pruebas y el despliegue.
-        El envío por correo aún no está habilitado.
+  Las notificaciones se generan automáticamente al asignar,
+  reasignar, completar o comentar tareas.
+  Las alertas de vencimiento están implementadas y probadas
+  localmente; su activación en producción está pendiente
+  del despliegue de Cloud Functions.
+  El envío por correo electrónico aún no está habilitado.
       </p>
     </div>
   )

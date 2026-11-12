@@ -270,3 +270,165 @@
     justify-content: flex-end;
   }
 }
+
+
+/* MEJORA VISUAL FORMULARIO TAREAS */
+
+/* Contenedor principal */
+.tasks-enhanced .task-create-panel {
+  border-radius: 14px;
+  padding: 30px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.055);
+}
+
+/* Encabezado */
+.tasks-enhanced .task-form-heading {
+  align-items: center;
+  margin-bottom: 26px;
+  padding-bottom: 20px;
+}
+
+.tasks-enhanced .task-form-heading h2 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+
+.tasks-enhanced .task-form-heading p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Distribución de campos */
+.tasks-enhanced .task-form-fields {
+  column-gap: 24px;
+  row-gap: 23px;
+}
+
+/* Etiquetas */
+.tasks-enhanced .task-field label {
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 2px;
+}
+
+/* Entradas */
+.tasks-enhanced .task-field input,
+.tasks-enhanced .task-field select,
+.tasks-enhanced .task-field textarea {
+  min-height: 44px;
+  border-radius: 9px;
+  padding: 12px 14px;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+/* Selección de campos */
+.tasks-enhanced .task-field input:focus,
+.tasks-enhanced .task-field select:focus,
+.tasks-enhanced .task-field textarea:focus {
+  outline: none;
+  border-color: #64748b;
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.13);
+}
+
+/* Campos incorrectos */
+.tasks-enhanced .task-field [aria-invalid="true"] {
+  border-color: #dc2626;
+}
+
+.tasks-enhanced .task-field [aria-invalid="true"]:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+/* Prioridades */
+.tasks-enhanced .task-priority-options {
+  gap: 12px;
+}
+
+.tasks-enhanced .task-priority-choice {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 9px;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.tasks-enhanced .task-priority-choice:hover {
+  transform: translateY(-1px);
+}
+
+.tasks-enhanced .task-priority-choice:focus-visible {
+  outline: 2px solid #64748b;
+  outline-offset: 3px;
+}
+
+/* Descripción */
+.tasks-enhanced .task-field textarea {
+  min-height: 115px;
+  line-height: 1.6;
+}
+
+/* Pie del formulario */
+.tasks-enhanced .task-form-footer {
+  margin-top: 30px;
+  padding-top: 22px;
+}
+
+.tasks-enhanced .task-form-actions {
+  gap: 12px;
+}
+
+.tasks-enhanced .task-form-actions .btn,
+.tasks-enhanced .task-secondary-btn {
+  min-height: 43px;
+  padding: 11px 22px;
+  border-radius: 9px;
+  font-weight: 600;
+}
+
+/* Botón cerrar */
+.tasks-enhanced .task-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.tasks-enhanced .task-close:hover {
+  background: #f1f5f9;
+}
+
+/* Adaptación móvil */
+@media (max-width: 700px) {
+  .tasks-enhanced .task-create-panel {
+    padding: 20px 16px;
+  }
+
+  .tasks-enhanced .task-form-fields {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .tasks-enhanced .task-priority-options {
+    flex-direction: column;
+  }
+
+  .tasks-enhanced .task-priority-choice {
+    width: 100%;
+  }
+
+  .tasks-enhanced .task-form-actions {
+    width: 100%;
+  }
+
+  .tasks-enhanced .task-form-actions button {
+    flex: 1;
+  }
+}

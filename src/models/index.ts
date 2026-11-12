@@ -113,6 +113,22 @@ export interface Obligation {
   status: ObligationStatus
   dueDate: string
   assignedUserId: string
+  assignedBy?: string
+  assignmentHistory?: {
+    fromUserId: string
+    toUserId: string
+    changedBy: string
+    changedByName: string
+    changedAt: number
+  }[]
+  completedAt?: number
+  completedBy?: string
+  completedByName?: string
+  completionHistory?: {
+    userId: string
+    userName: string
+    completedAt: number
+  }[]
 }
 
 // ===== Notificación =====

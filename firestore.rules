@@ -271,6 +271,22 @@ service cloud.firestore {
       || (
         hasAnyRole(['OPERATOR'])
         && resource.data.assignedUserId == request.auth.uid
+        && resource.data.status != 'DONE'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'completedAt', 'completedBy', 'completedByName', 'completionHistory'
+        ])
+        && (
+          (request.resource.data.status in ['PENDING', 'IN_PROGRESS', 'OVERDUE']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+          || (
+            request.resource.data.status == 'DONE'
+            && request.resource.data.completedBy == request.auth.uid
+            && request.resource.data.completedAt is int
+            && request.resource.data.completionHistory is list
+            && request.resource.data.completionHistory.size() ==
+              resource.data.get('completionHistory', []).size() + 1
+          )
+        )
       );
     }
 
@@ -302,5 +318,42 @@ service cloud.firestore {
         'SUPERUSER'
       ]);
     }
+
+    // ==========================================
+    // HU-41: CONFIGURACION DEL SEMAFORO
+    // ==========================================
+
+    match /settings/{settingId} {
+
+      // Todos los usuarios activos pueden consultar el semaforo.
+      allow read: if settingId == 'semaphore'
+        && hasAnyRole([
+          'OPERATOR',
+          'SUPERVISOR',
+          'ADMIN',
+          'SUPERUSER'
+        ]);
+
+      // Solo administradores pueden configurar los rangos.
+      allow create, update: if settingId == 'semaphore'
+        && hasAnyRole(['ADMIN', 'SUPERUSER'])
+        && request.resource.data.keys().hasOnly([
+          'redDays',
+          'yellowDays'
+        ])
+        && request.resource.data.keys().hasAll([
+          'redDays',
+          'yellowDays'
+        ])
+        && request.resource.data.redDays is int
+        && request.resource.data.yellowDays is int
+        && request.resource.data.redDays >= 0
+        && request.resource.data.redDays < request.resource.data.yellowDays
+        && request.resource.data.yellowDays <= 365;
+
+      // No se permite eliminar la configuracion.
+      allow delete: if false;
+    }
+
   }
 }

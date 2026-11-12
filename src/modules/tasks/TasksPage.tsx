@@ -439,78 +439,62 @@ export default function TasksPage({
         </form>
       )}
 
+
       {loading ? (
         <p>Cargando tareas…</p>
       ) : (
-        <div className="board">
-          {COLUMNS.map(col => {
-            const colTasks = visible.filter(t => t.status === col)
+        <div className="task-create-panel">
+          <div className="task-form-heading">
+            <div>
+              <h2>Listado de tareas</h2>
+              <p>Consulta las tareas registradas y abre una para ver sus detalles.</p>
+            </div>
+            <span>{visible.length} tareas</span>
+          </div>
 
-            return (
-              <div className="board-col" key={col}>
-                <h3>
-                  <span>{STATUS_LABEL[col]}</span>
-                  <span>{colTasks.length}</span>
-                </h3>
+          <div style={{ display: 'grid', gap: 12, marginTop: 20 }}>
+            {visible.map(t => {
+              const traffic = getTrafficLight(t)
 
-                {colTasks.map(t => {
-                  const traffic = getTrafficLight(t)
-                  const subs = t.subtasks ?? []
+              return (
+                <Link
+                  key={t.id}
+                  to={`${base}/tasks/${t.id}`}
+                  className="task-card"
+                >
+                  <div className="task-card-title">
+                    <span>{t.title}</span>
+                    <span className={`priority-pill priority-${(t.priority ?? 'MEDIUM').toLowerCase()}`}>
+                      {PRIORITY_LABEL[t.priority ?? 'MEDIUM']}
+                    </span>
+                  </div>
 
-                  return (
-                    <Link
-                      className="task-card"
-                      key={t.id}
-                      to={`${base}/tasks/${t.id}`}
-                    >
-                      <div className="task-card-title">
-                        <span>{t.title}</span>
-                        <span
-                          className={`priority-pill priority-${(t.priority ?? 'MEDIUM').toLowerCase()}`}
-                        >
-                          {PRIORITY_LABEL[t.priority ?? 'MEDIUM']}
-                        </span>
-                      </div>
+                  <div className="task-card-meta">
+                    <span>{clientNameOfProject(t.projectId)} · {projectOf(t.projectId)?.name ?? '—'}</span>
+                    <span>Responsable: {userName(t.assignedUserId)}</span>
+                    <span><CalendarDays size={13} /> Vence {t.dueDate || '—'}</span>
+                    <span>Estado: {STATUS_LABEL[t.status]}</span>
+                  </div>
 
-                      <div className="task-card-meta">
-                        <span>
-                          {clientNameOfProject(t.projectId)} · {projectOf(t.projectId)?.name ?? '—'}
-                        </span>
-                        <span>{userName(t.assignedUserId)}</span>
-                        <span className={isOverdue(t) ? 'overdue' : ''}>
-                          <CalendarDays size={13} />
-                          Vence {t.dueDate || '—'}
-                        </span>
+                  <div className={`task-deadline task-deadline-${traffic.level}`}>
+                    {traffic.level === 'overdue' || traffic.level === 'danger'
+                      ? <AlertCircle size={14} />
+                      : traffic.level === 'completed'
+                        ? <CheckCircle2 size={14} />
+                        : <Clock3 size={14} />}
+                    <span>{traffic.label}</span>
+                  </div>
+                </Link>
+              )
+            })}
 
-                        {subs.length > 0 && (
-                          <span>
-                            Subtareas {subs.filter(s => s.done).length}/{subs.length}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className={`task-deadline task-deadline-${traffic.level}`}>
-                        {traffic.level === 'overdue' || traffic.level === 'danger'
-                          ? <AlertCircle size={14} />
-                          : traffic.level === 'completed'
-                            ? <CheckCircle2 size={14} />
-                            : <Clock3 size={14} />}
-                        <span>{traffic.label}</span>
-                      </div>
-                    </Link>
-                  )
-                })}
-
-                {colTasks.length === 0 && (
-                  <p className="module-note" style={{ margin: 0 }}>
-                    Sin tareas
-                  </p>
-                )}
-              </div>
-            )
-          })}
+            {visible.length === 0 && (
+              <p className="module-note">No hay tareas que coincidan con los filtros.</p>
+            )}
+          </div>
         </div>
       )}
+
     </div>
   )
 }

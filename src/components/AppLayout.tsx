@@ -16,11 +16,13 @@ interface NavItem {
 
 const nav = (base: string, extra: NavItem[] = [], withClients = true): NavItem[] => [
   { label: 'Dashboard', to: base },
-  { label: 'Tablero de tareas', to: `${base}/tasks` },
+  { label: 'Tareas', to: `${base}/tasks` },
+  { label: 'Tablero Kanban', to: `${base}/kanban` },
   { label: 'Registro de tiempos', to: `${base}/time-tracker` },
   { label: 'Historial de actividades', to: `${base}/activities` },
   ...(withClients ? [{ label: 'Clientes', to: `${base}/clients` }, { label: 'Proyectos', to: `${base}/projects` }] : []),
   { label: 'Obligaciones', to: `${base}/obligations` },
+  { label: 'Calendario fiscal', to: `${base}/calendar` },
   ...(withClients ? [{ label: 'Reportes', to: `${base}/reports` }] : []),
   { label: 'Notificaciones', to: `${base}/notifications` },
   ...extra,
