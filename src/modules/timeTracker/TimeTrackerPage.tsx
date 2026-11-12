@@ -1,3 +1,5 @@
+import { groupHours, historyRows, localDay, originLabel } from './timeHistory'
+import { can } from '../../services/permissions'
 import LateTimeInbox from './LateTimeInbox'
 import LateTimeForm from './LateTimeForm'
 import React, { useEffect, useMemo, useState } from 'react'
@@ -11,7 +13,7 @@ import { projectsService } from '../projects/projectsService'
 import { tasksService } from '../tasks/tasksService'
 import { useUsers } from '../users/useUsers'
 import { useAuth } from '../../hooks/useAuth'
-import { LEVEL_LABEL, entryLevel, formatHours, formatClock } from '../../services/billing'
+import { LEVEL_LABEL, entryLevel, formatClock } from '../../services/billing'
 import { entryDate } from '../../services/period'
 import { Client, Project, Task, TimeEntry } from '../../models'
 
@@ -44,6 +46,14 @@ export default function TimeTrackerPage() {
   const [tasks, setTasks] = useState<Task[]>([])
 
   const [week, setWeek] = useState(String(startOfWeek()))
+  const weekEnd = (start: number) => {
+    const end = new Date(start)
+    end.setDate(end.getDate() + 6)
+    return localDay(end.getTime())
+  }
+  const [from, setFrom] = useState(() => localDay(Number(week)))
+  const [to, setTo] = useState(() => weekEnd(Number(week)))
+  const invalidPeriod = !from || !to || from > to
   const [employee, setEmployee] = useState('')
   const [showManual, setShowManual] = useState(false)
   const [stopOpen, setStopOpen] = useState(false)
@@ -69,18 +79,14 @@ export default function TimeTrackerPage() {
     return timeEntriesService.subscribe(setAll, isOperator ? [where('userId', '==', profile.id)] : [])
   }, [profile, isOperator])
 
-  const rows = useMemo(() => {
-    const start = Number(week)
-    return all
-      .filter((e) => e.status === 'STOPPED')
-      .filter((e) => entryDate(e) >= start && entryDate(e) < start + 7 * DAY)
-      .filter((e) => !employee || e.userId === employee)
-      .sort((a, b) => entryDate(b) - entryDate(a))
-  }, [all, week, employee])
-
-  const userName = (id: string) => users.find((u) => u.id === id)?.name ?? '—'
-  const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? '—'
-  const taskTitle = (id: string) => tasks.find((t) => t.id === id)?.title ?? '—'
+  const team = can(profile?.role, 'team.view')
+  const rows = useMemo(() => profile ? historyRows(all, from, to, team ? employee : profile.id) : [],
+    [all, from, to, team, employee, profile])
+  const groups = useMemo(() => groupHours(team ? rows : []), [team, rows])
+  const userName = (id: string) => users.find(u => u.id === id)?.name || id
+  const clientName = (id: string) => clients.find(c => c.id === id)?.name || (id ? 'Cliente ' + id : 'Sin cliente')
+  const projectName = (id: string) => projects.find(p => p.id === id)?.name || (id ? 'Proyecto ' + id : 'Sin proyecto')
+  const taskTitle = (id: string) => tasks.find(t => t.id === id)?.title || (id ? 'Tarea ' + id : 'Sin tarea')
   const ref = () => ({ ...pick, description })
 
   const handleStart = async () => {
@@ -141,11 +147,20 @@ export default function TimeTrackerPage() {
       {stopOpen && <StopTimerModal timer={timer} onClose={() => setStopOpen(false)} />}
 
       <div className="toolbar">
-        <select value={week} onChange={(e) => setWeek(e.target.value)}>
+        <select aria-label="Periodo" value={week} onChange={e => {
+          setWeek(e.target.value)
+          if (e.target.value) {
+            setFrom(localDay(Number(e.target.value)))
+            setTo(weekEnd(Number(e.target.value)))
+          }
+        }}>
+          <option value="">Rango personalizado</option>
           {weekOptions().map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
         </select>
-        {!isOperator && (
-          <select value={employee} onChange={(e) => setEmployee(e.target.value)}>
+        <label>Desde <input type="date" value={from} onChange={e => { setWeek(''); setFrom(e.target.value) }} /></label>
+        <label>Hasta <input type="date" value={to} onChange={e => { setWeek(''); setTo(e.target.value) }} /></label>
+        {team && (
+          <select aria-label="Colaborador" value={employee} onChange={(e) => setEmployee(e.target.value)}>
             <option value="">Empleado: Todos</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
@@ -161,24 +176,49 @@ export default function TimeTrackerPage() {
       )}
 
       {profile && <LateTimeInbox key={profile.id} profile={profile} users={users} tasks={tasks} />}
+      {invalidPeriod && <p role="alert">Selecciona ambas fechas. La fecha final debe ser igual o posterior a la inicial.</p>}
+      {team && !invalidPeriod && <section className="card">
+        <h2>Horas por colaborador</h2>
+        {Array.from(new Set([...users.filter(u => !employee || u.id === employee).map(u => u.id), ...groups.keys()]))
+          .sort((a, b) => userName(a).localeCompare(userName(b), 'es'))
+          .map(id => {
+            const total = groups.get(id)
+            if (!total) return <p key={id}>{userName(id)} · {formatClock(0)}</p>
+            return <details key={id}>
+              <summary>{userName(id)} · {formatClock(total.seconds)}</summary>
+              <ul>{Array.from(total.children, ([client, c]) => <li key={client}>
+                {clientName(client)} · {formatClock(c.seconds)}
+                <ul>{Array.from(c.children, ([project, p]) => <li key={project}>
+                  {projectName(project)} · {formatClock(p.seconds)}
+                  <ul>{Array.from(p.children, ([task, t]) => <li key={task}>{taskTitle(task)} · {formatClock(t.seconds)}</li>)}</ul>
+                </li>)}</ul>
+              </li>)}</ul>
+            </details>
+          })}
+      </section>}
+      <h2>{team ? 'Historial de actividades del equipo' : 'Mi historial de actividades'}</h2>
+      <div style={{ overflowX: 'auto' }}>
       <table className="data-table">
         <thead>
-          <tr><th>Fecha</th><th>Empleado</th><th>Cliente</th><th>Tarea</th><th>Tipo</th><th className="num">Horas</th></tr>
+          <tr><th>Fecha</th><th>Empleado</th><th>Cliente</th><th>Proyecto</th><th>Tarea</th><th>Origen</th><th>Nivel</th><th className="num">Duración (hh:mm:ss)</th></tr>
         </thead>
         <tbody>
-          {rows.length === 0 && <tr><td colSpan={6} className="muted">Sin registros en esta semana.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={8} className="muted">Sin registros finalizados en el periodo.</td></tr>}
           {rows.map((e) => (
             <tr key={e.id}>
-              <td>{new Date(entryDate(e)).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }).replace('.', '')}</td>
+              <td>{new Date(entryDate(e)).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
               <td>{userName(e.userId)}</td>
-              <td>{e.clientId ? clientName(e.clientId) : '—'}</td>
-              <td>{e.taskId ? taskTitle(e.taskId) : (e.description || '—')}</td>
+              <td>{clientName(e.clientId)}</td>
+              <td>{projectName(e.projectId)}</td>
+              <td>{taskTitle(e.taskId)}{!e.taskId && e.description && ' · ' + e.description}</td>
+              <td>{originLabel[e.type] || 'Sin clasificar'}</td>
               <td><span className="pill neutral">{LEVEL_LABEL[entryLevel(e, users)]}</span></td>
-              <td className="num">{formatHours(e.duration)}</td>
+              <td className="num">{formatClock(e.duration)}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
       <p className="footnote">Cada registro se asocia automáticamente al nivel del empleado (Junior / Senior / Administrador) para el cálculo del cobro estimado.</p>
     </div>
   )
