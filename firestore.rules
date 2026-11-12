@@ -1,13 +1,20 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ==========================================
+    // FUNCIONES GENERALES
+    // ==========================================
 
     function isSignedIn() {
       return request.auth != null;
     }
 
     function myProfile() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      ).data;
     }
 
     function myRole() {
@@ -18,27 +25,29 @@ service cloud.firestore {
       return myProfile().active == true;
     }
 
-    // Roles válidos: SUPERUSER, ADMIN, SUPERVISOR, OPERATOR (HU-06).
-    // No existe un rol "CLIENT": el cliente del despacho nunca inicia
-    // sesión, solo vive como registro en la colección /clients.
     function hasAnyRole(roles) {
-      return isSignedIn() && isActive() && myRole() in roles;
+      return isSignedIn()
+        && isActive()
+        && myRole() in roles;
     }
 
-    // Usuarios:
-    // - Lectura: cualquier usuario ACTIVO puede leer perfiles (el Operador
-    //   necesita ver los nombres de sus compañeros en tareas y comentarios).
-    //   Un usuario siempre puede leer su propio perfil, incluso antes de
-    //   validar si está activo (así se resuelve su rol al iniciar sesión).
-    //   OJO: esto también expone correo y teléfono de los colegas a cualquier
-    //   usuario activo.
-    // - Alta/edición: SUPERUSER todo; ADMIN no puede crear ni modificar
-    //   cuentas de SUPERUSER ni asignar ese rol.
+    // ==========================================
+    // USUARIOS
+    // ==========================================
+
     match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isActive());
+
+      allow read: if isSignedIn()
+        && (
+          request.auth.uid == userId ||
+          isActive()
+        );
 
       allow create: if hasAnyRole(['SUPERUSER'])
-        || (hasAnyRole(['ADMIN']) && request.resource.data.role != 'SUPERUSER');
+        || (
+          hasAnyRole(['ADMIN'])
+          && request.resource.data.role != 'SUPERUSER'
+        );
 
       allow update: if (isSignedIn() && isActive() && request.auth.uid == userId
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','phone','position','mustChangePassword'])
@@ -49,27 +58,159 @@ service cloud.firestore {
             && resource.data.role != 'SUPERUSER'
             && request.resource.data.role != 'SUPERUSER');
 
+
       allow delete: if hasAnyRole(['SUPERUSER']);
     }
 
+    // ==========================================
+    // CLIENTES
+    // ==========================================
+
     match /clients/{clientId} {
-      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','ADMIN','SUPERUSER']);
-      allow write: if hasAnyRole(['ADMIN','SUPERUSER']);
+
+      allow read: if hasAnyRole([
+        'OPERATOR',
+        'SUPERVISOR',
+        'ADMIN',
+        'SUPERUSER'
+      ]);
+
+      allow write: if hasAnyRole([
+        'ADMIN',
+        'SUPERUSER'
+      ]);
     }
+
+    // ==========================================
+    // PROYECTOS
+    // ==========================================
 
     match /projects/{projectId} {
-      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','ADMIN','SUPERUSER']);
-      allow write: if hasAnyRole(['ADMIN','SUPERUSER']);
+
+      allow read: if hasAnyRole([
+        'OPERATOR',
+        'SUPERVISOR',
+        'ADMIN',
+        'SUPERUSER'
+      ]);
+
+      allow write: if hasAnyRole([
+        'ADMIN',
+        'SUPERUSER'
+      ]);
     }
 
+    // ==========================================
+    // TAREAS
+    // ==========================================
+
     match /tasks/{taskId} {
-      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','ADMIN','SUPERUSER']);
-      // Crear/asignar tareas: Administrador o Supervisor (HU-19, HU-20).
-      // El Operador solo puede actualizar su propio estado de tarea (HU-22).
-      allow create: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']);
-      allow update: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']) ||
-        (hasAnyRole(['OPERATOR']) && resource.data.assignedUserId == request.auth.uid);
-      allow delete: if hasAnyRole(['ADMIN','SUPERUSER']);
+
+      function isAssignedOperator() {
+        return hasAnyRole(['OPERATOR'])
+          && resource.data.assignedUserId == request.auth.uid;
+      }
+
+      function operatorAllowedFields() {
+        return request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'status',
+            'completedAt',
+            'completedBy',
+            'completionHistory',
+            'comments',
+            'subtasks'
+          ]);
+      }
+
+      function validOperatorStatus() {
+        return request.resource.data.status in [
+          'PENDING',
+          'IN_PROGRESS',
+          'COMPLETED'
+        ]
+        && (
+          !request.resource.data.diff(resource.data)
+            .affectedKeys()
+            .hasAny([
+              'status',
+              'completedAt',
+              'completedBy',
+              'completionHistory'
+            ])
+          || (
+            request.resource.data.status == 'COMPLETED'
+            && request.resource.data.completedBy == request.auth.uid
+          )
+          || (
+            request.resource.data.status != 'COMPLETED'
+            && request.resource.data.completedBy == ''
+            && request.resource.data.completedAt == 0
+          )
+        );
+      }
+
+      function validOperatorComments() {
+        return !request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasAny(['comments'])
+          || (
+            request.resource.data.comments is list
+            && resource.data.comments is list
+            && request.resource.data.comments.size()
+              == resource.data.comments.size() + 1
+            && request.resource.data.comments[
+              resource.data.comments.size()
+            ].userId == request.auth.uid
+            && request.resource.data.comments[
+              resource.data.comments.size()
+            ].id is string
+            && request.resource.data.comments[
+              resource.data.comments.size()
+            ].text is string
+          );
+      }
+
+      function validOperatorSubtasks() {
+        return !request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasAny(['subtasks'])
+          || request.resource.data.subtasks is list;
+      }
+
+      allow read: if hasAnyRole([
+        'OPERATOR',
+        'SUPERVISOR',
+        'ADMIN',
+        'SUPERUSER'
+      ]);
+
+      // Crear tareas.
+      allow create: if hasAnyRole([
+        'SUPERVISOR',
+        'ADMIN',
+        'SUPERUSER'
+      ]);
+
+      // Editar tareas.
+      allow update: if hasAnyRole([
+        'SUPERVISOR',
+        'ADMIN',
+        'SUPERUSER'
+      ])
+      || (
+        isAssignedOperator()
+        && operatorAllowedFields()
+        && validOperatorStatus()
+        && validOperatorComments()
+        && validOperatorSubtasks()
+      );
+
+      allow delete: if hasAnyRole([
+        'ADMIN',
+        'SUPERUSER'
+      ]);
     }
 
     function reviewer() {
@@ -145,30 +286,116 @@ service cloud.firestore {
         || (isSignedIn() && isActive() && resource.data.userId == request.auth.uid));
     }
 
+    // ==========================================
+    // OBLIGACIONES
+    // ==========================================
+
     match /obligations/{obligationId} {
-      allow read: if hasAnyRole(['OPERATOR','SUPERVISOR','ADMIN','SUPERUSER']);
-      // Registrar/asignar obligación: Administrador o Supervisor (HU-33, HU-34).
-      // Completar (HU-37) la puede hacer también el Operador responsable.
-      allow create, delete: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']);
-      allow update: if hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']) ||
-        (hasAnyRole(['OPERATOR']) && resource.data.assignedUserId == request.auth.uid);
+
+      allow read: if hasAnyRole([
+        'OPERATOR',
+        'SUPERVISOR',
+        'ADMIN',
+        'SUPERUSER'
+      ]);
+
+      allow create, delete: if hasAnyRole([
+        'SUPERVISOR',
+        'ADMIN',
+        'SUPERUSER'
+      ]);
+
+      allow update: if hasAnyRole([
+        'SUPERVISOR',
+        'ADMIN',
+        'SUPERUSER'
+      ])
+      || (
+        hasAnyRole(['OPERATOR'])
+        && resource.data.assignedUserId == request.auth.uid
+        && resource.data.status != 'DONE'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'completedAt', 'completedBy', 'completedByName', 'completionHistory'
+        ])
+        && (
+          (request.resource.data.status in ['PENDING', 'IN_PROGRESS', 'OVERDUE']
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+          || (
+            request.resource.data.status == 'DONE'
+            && request.resource.data.completedBy == request.auth.uid
+            && request.resource.data.completedAt is int
+            && request.resource.data.completionHistory is list
+            && request.resource.data.completionHistory.size() ==
+              resource.data.get('completionHistory', []).size() + 1
+          )
+        )
+      );
     }
 
+    // ==========================================
+    // NOTIFICACIONES
+    // ==========================================
+
     match /notifications/{notificationId} {
-      // Cada quien solo lee y marca como leídas SUS notificaciones.
-      allow read, update: if isSignedIn() && isActive() && resource.data.userId == request.auth.uid;
 
-      // Cualquier usuario activo puede avisar a otro (p. ej. el Operador al
-      // completar o comentar una tarea), pero solo con la forma esperada.
-      allow create: if isSignedIn() && isActive()
-        && request.resource.data.keys().hasOnly(['userId','title','message','level','read','createdAt'])
-        && request.resource.data.userId is string
-        && request.resource.data.title is string && request.resource.data.title.size() <= 200
-        && request.resource.data.message is string && request.resource.data.message.size() <= 500
-        && request.resource.data.level in ['INFO','WARNING','URGENT']
-        && request.resource.data.read == false;
+      // Solo el destinatario puede leerlas.
+      allow read: if isSignedIn()
+        && isActive()
+        && resource.data.userId == request.auth.uid;
 
-      allow delete: if hasAnyRole(['ADMIN','SUPERUSER']);
+      // Solo Cloud Functions / Admin SDK las crea.
+      allow create: if false;
+
+      // Solo se permite marcarlas como leidas.
+      allow update: if isSignedIn()
+        && isActive()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['read'])
+        && request.resource.data.read == true;
+
+      allow delete: if hasAnyRole([
+        'ADMIN',
+        'SUPERUSER'
+      ]);
+    }
+
+    // ===================================
+
+    // HU-41: CONFIGURACION DEL SEMAFORO
+    // ==========================================
+
+    match /settings/{settingId} {
+
+      // Todos los usuarios activos pueden consultar el semaforo.
+      allow read: if settingId == 'semaphore'
+        && hasAnyRole([
+          'OPERATOR',
+          'SUPERVISOR',
+          'ADMIN',
+          'SUPERUSER'
+        ]);
+
+      // Solo administradores pueden configurar los rangos.
+      allow create, update: if settingId == 'semaphore'
+        && hasAnyRole(['ADMIN', 'SUPERUSER'])
+        && request.resource.data.keys().hasOnly([
+          'redDays',
+          'yellowDays'
+        ])
+        && request.resource.data.keys().hasAll([
+          'redDays',
+          'yellowDays'
+        ])
+        && request.resource.data.redDays is int
+        && request.resource.data.yellowDays is int
+        && request.resource.data.redDays >= 0
+        && request.resource.data.redDays < request.resource.data.yellowDays
+        && request.resource.data.yellowDays <= 365;
+
+      // No se permite eliminar la configuracion.
+      allow delete: if false;
     }
 
     match /activities/{activityId} {

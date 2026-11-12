@@ -27,6 +27,8 @@ export default function ReportsPage() {
   const [clientId, setClientId] = useState('')
   const [employeeId, setEmployeeId] = useState('')
   const [withCharge, setWithCharge] = useState(false)
+  const [obligationStatusFilter, setObligationStatusFilter] =
+    useState<ObligationStatus | ''>('')
 
   useEffect(() => {
     const u1 = timeEntriesService.subscribe(setEntries)
@@ -64,6 +66,7 @@ export default function ReportsPage() {
   const obligationRows = obligations
     .filter((o) => !clientId || o.clientId === clientId)
     .filter((o) => !employeeId || o.assignedUserId === employeeId)
+    .filter((o) => !obligationStatusFilter || o.status === obligationStatusFilter)
     .filter((o) => inRange(new Date(o.dueDate + 'T12:00:00').getTime(), range))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
 
@@ -106,6 +109,24 @@ export default function ReportsPage() {
               {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
+          {!isHours && (
+            <div className="detail-row">
+              <label>Estado de obligación</label>
+              <select
+                value={obligationStatusFilter}
+                onChange={(e) =>
+                  setObligationStatusFilter(
+                    e.target.value as ObligationStatus | ''
+                  )
+                }
+              >
+                <option value="">Todos</option>
+                {Object.entries(OBLIGATION_STATUS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {isHours && (
             <label className="check-row">
               <input type="checkbox" checked={withCharge} onChange={(e) => setWithCharge(e.target.checked)} />
@@ -143,7 +164,23 @@ export default function ReportsPage() {
                 {withCharge && <p className="footnote">Cobro estimado con tarifas de ejemplo por nivel (pendientes de definir por la empresa).</p>}
               </>
             ) : (
-              <table className="report-table">
+              <>
+                <p className="report-meta">
+                  Total: {obligationRows.length}
+                  {' · '}Pendientes: {obligationRows.filter(
+                    (o) => o.status === 'PENDING'
+                  ).length}
+                  {' · '}En progreso: {obligationRows.filter(
+                    (o) => o.status === 'IN_PROGRESS'
+                  ).length}
+                  {' · '}Cumplidas: {obligationRows.filter(
+                    (o) => o.status === 'DONE'
+                  ).length}
+                  {' · '}Vencidas: {obligationRows.filter(
+                    (o) => o.status === 'OVERDUE'
+                  ).length}
+                </p>
+                <table className="report-table">
                 <thead><tr><th>Obligación</th><th>Cliente</th><th>Responsable</th><th>Fecha límite</th><th>Estado</th></tr></thead>
                 <tbody>
                   {obligationRows.length === 0 && <tr><td colSpan={5} className="muted">Sin obligaciones en este periodo.</td></tr>}
@@ -153,7 +190,8 @@ export default function ReportsPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </>
             )}
           </div>
         </div>
