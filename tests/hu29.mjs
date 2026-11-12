@@ -35,6 +35,10 @@ try {
 
   await denied(setDoc(hours(worker), entry))
   await denied(setDoc(request(worker), { ...pending, reason: '  ' }))
+  const ordinary = doc(worker, 'lateTimeRequests', unique + '-normal')
+  await denied(setDoc(ordinary, { entry, requestedAt: serverTimestamp(), status: 'PENDING' }))
+  await setDoc(ordinary, { kind: 'STANDARD', entry: { ...entry, description: '' }, status: 'PENDING', requestedAt: serverTimestamp() })
+  assert.equal((await getDoc(doc(boss, 'timeEntries', ordinary.id))).exists(), false)
   await setDoc(request(worker), pending)
   assert.equal((await getDoc(hours(boss))).exists(), false)
   await denied(updateDoc(request(worker), { ...decision, reviewedBy: 'operador' }))
