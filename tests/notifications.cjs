@@ -1,5 +1,5 @@
 
-const admin = require("./functions/node_modules/firebase-admin");
+const admin = require('../functions/node_modules/firebase-admin');
 
 // Conexion exclusiva al emulador local.
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
