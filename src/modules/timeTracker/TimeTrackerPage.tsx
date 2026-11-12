@@ -1,7 +1,8 @@
 import LateTimeInbox from './LateTimeInbox'
 import LateTimeForm from './LateTimeForm'
-import React, { useEffect, useMemo, useState } from 'react'
-import { where } from 'firebase/firestore'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { auth, db } from '../../firebase/config'
+import { addDoc, collection, serverTimestamp, where } from 'firebase/firestore'
 import { timeEntriesService, startOfWeek } from './timeTrackerService'
 import { useTimer, isUnassigned } from './useTimer'
 import StopTimerModal from './StopTimerModal'
@@ -48,11 +49,46 @@ export default function TimeTrackerPage() {
   const [showManual, setShowManual] = useState(false)
   const [stopOpen, setStopOpen] = useState(false)
 
+  const lateDialog = useRef<HTMLDialogElement>(null)
+  const [latePick, setLatePick] = useState<PickerValue>(emptyPick)
+  const [lateOpen, setLateOpen] = useState(false)
+
   const [pick, setPick] = useState<PickerValue>(emptyPick)
   const [description, setDescription] = useState('')
   const [sent, setSent] = useState(false)
   const [manualPick, setManualPick] = useState<PickerValue>(emptyPick)
   const [error, setError] = useState<string | null>(null)
+
+  const [manual, setManual] = useState({ date: '', from: '', to: '' })
+  const [manualDescription, setManualDescription] = useState('')
+  const [manualError, setManualError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleManual(event: React.FormEvent) {
+    event.preventDefault()
+    if (submitting) return
+    const userId = auth.currentUser?.uid
+    if (!userId) return setManualError('Inicia sesión para solicitar el registro.')
+    const startTime = new Date(manual.date + 'T' + manual.from).getTime()
+    const endTime = new Date(manual.date + 'T' + manual.to).getTime()
+    if (!(endTime > startTime) || endTime > Date.now()) return setManualError('Elige un intervalo válido que ya haya terminado.')
+    setSubmitting(true)
+    setManualError('')
+    try {
+      await addDoc(collection(db, 'lateTimeRequests'), {
+        kind: 'STANDARD', requestedAt: serverTimestamp(), status: 'PENDING',
+        entry: { ...manualPick, description: manualDescription.trim(), userId, startTime, endTime,
+          duration: (endTime - startTime) / 1000, type: 'MANUAL', status: 'STOPPED' },
+      })
+      setManual({ date: '', from: '', to: '' })
+      setManualPick(emptyPick)
+      setManualDescription('')
+      setShowManual(false)
+      setSent(true)
+    } catch {
+      setManualError('No se pudo enviar la solicitud. Comprueba la conexión y los permisos.')
+    } finally { setSubmitting(false) }
+  }
 
   const isOperator = profile?.role === 'OPERATOR'
 
@@ -97,8 +133,29 @@ export default function TimeTrackerPage() {
 
   return (
     <div className="module-page">
-      <h1>Registro de tiempos</h1>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <h1>Registro de tiempos</h1>
+        <button className="btn btn-ghost" type="button" aria-haspopup="dialog" onClick={() => {
+          setSent(false)
+          setLatePick(emptyPick)
+          setLateOpen(true)
+          lateDialog.current?.showModal()
+        }}>Solicitar registro extemporáneo</button>
+      </header>
       <p className="page-subtitle">{isOperator ? 'Tu tiempo capturado' : 'Tiempo capturado por el equipo'} · vinculado a tarea y cliente</p>
+
+      <dialog ref={lateDialog} aria-label="Solicitar registro extemporáneo"
+        onClose={() => setLateOpen(false)}
+        style={{ width: 'min(32rem, 92vw)', maxHeight: '90vh', padding: 0, border: 0, borderRadius: 12 }}>
+        {lateOpen && <LateTimeForm title="Solicitar registro extemporáneo" onCancel={() => lateDialog.current?.close()}
+          activity={{ ...latePick, description: '' }} onSent={() => {
+            lateDialog.current?.close()
+            setSent(true)
+          }}>
+          <ActivityPicker clients={clients} projects={projects} tasks={tasks} value={latePick} onChange={setLatePick} />
+        </LateTimeForm>}
+      </dialog>
+      {sent && <p role="status">Solicitud enviada a revisión. Las horas se sumarán al aprobarla.</p>}
 
       <div className="tracker-top">
         <div className="card">
@@ -153,11 +210,16 @@ export default function TimeTrackerPage() {
         <button className="btn push-right" onClick={() => { setSent(false); setShowManual(v => !v) }}>+ Solicitar registro</button>
       </div>
 
-      {sent && <p role="status">Solicitud enviada. Las horas se sumarán al aprobarla.</p>}
       {showManual && (
-        <LateTimeForm activity={{ ...manualPick, description: '' }} onSent={() => { setSent(true); setShowManual(false); setManualPick(emptyPick) }}>
+        <form className="inline-form form-grid" onSubmit={handleManual}>
           <ActivityPicker clients={clients} projects={projects} tasks={tasks} value={manualPick} onChange={setManualPick} />
-        </LateTimeForm>
+          <input maxLength={1000} placeholder="Descripción (opcional)" value={manualDescription} onChange={(e) => setManualDescription(e.target.value)} />
+          <input type="date" value={manual.date} onChange={(e) => setManual({ ...manual, date: e.target.value })} required />
+          <input type="time" value={manual.from} onChange={(e) => setManual({ ...manual, from: e.target.value })} required />
+          <input type="time" value={manual.to} onChange={(e) => setManual({ ...manual, to: e.target.value })} required />
+          {manualError && <p role="alert">{manualError}</p>}
+          <button disabled={submitting} type="submit">Solicitar registro</button>
+        </form>
       )}
 
       {profile && <LateTimeInbox key={profile.id} profile={profile} users={users} tasks={tasks} />}
