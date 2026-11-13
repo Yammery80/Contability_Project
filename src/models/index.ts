@@ -23,6 +23,10 @@
  export type ClientStatus = 'ACTIVE' | 'PAUSED' | 'INACTIVE'
 
  export interface Client {
+   hasFiscalFile?: boolean
+   taxRegime?: string
+   responsibleUserId?: string
+   updatedAt?: number
    id: string
    name: string
    type: ClientType

@@ -85,6 +85,18 @@ service cloud.firestore {
     // PROYECTOS
     // ==========================================
 
+    match /clients/{clientId}/fiscal/regime {
+      allow get: if hasAnyRole(['ADMIN','SUPERUSER']);
+      allow create, update: if hasAnyRole(['ADMIN','SUPERUSER'])
+        && getAfter(/databases/$(database)/documents/clients/$(clientId)).data.hasFiscalFile == true
+        && request.resource.data.keys().hasOnly(['filename','mime','content','updatedAt'])
+        && request.resource.data.filename is string && request.resource.data.filename.size() > 0
+        && request.resource.data.filename.size() <= 255
+        && request.resource.data.mime in ['application/pdf','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        && request.resource.data.content is bytes && request.resource.data.content.size() > 0
+        && request.resource.data.content.size() <= 921600 && request.resource.data.updatedAt == request.time;
+    }
+
     match /projects/{projectId} {
 
       allow read: if hasAnyRole([

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { saveClientFile, downloadFiscalFile } from './fiscalFile'
 import { clientsService } from './clientsService'
 import { projectsService } from '../projects/projectsService'
 import { tasksService } from '../tasks/tasksService'
@@ -6,10 +7,11 @@ import { timeEntriesService } from '../timeTracker/timeTrackerService'
 import { currentMonthValue, entryDate, inRange, monthRange } from '../../services/period'
 import { formatHours } from '../../services/billing'
 import { useAuth } from '../../hooks/useAuth'
+import { useUsers } from '../users/useUsers'
 import { can } from '../../services/permissions'
 import { Client, ClientStatus, ClientType, Project, Task, TimeEntry } from '../../models'
 
-const emptyForm = { name: '', type: 'PHYSICAL_PERSON' as ClientType, email: '', phone: '' }
+const emptyForm = { name: '', type: 'PHYSICAL_PERSON' as ClientType, email: '', phone: '', responsibleUserId: '' }
 
 const STATUS_LABEL: Record<ClientStatus, string> = { ACTIVE: 'Activo', PAUSED: 'Pausa', INACTIVE: 'Inactivo' }
 const STATUS_PILL: Record<ClientStatus, string> = { ACTIVE: 'ok', PAUSED: 'warn', INACTIVE: 'off' }
@@ -17,6 +19,10 @@ const TYPE_LABEL: Record<ClientType, string> = { PHYSICAL_PERSON: 'Persona físi
 
 export default function ClientsPage() {
   const { profile } = useAuth()
+  const users = useUsers()
+  const [error, setError] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [saving, setSaving] = useState(false)
   const canEdit = can(profile?.role, 'clients.edit') // solo Administrador / Superusuario
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -54,17 +60,29 @@ export default function ClientsPage() {
     return map
   }, [projects, tasks, entries])
 
-  const resetForm = () => { setForm(emptyForm); setEditingId(null); setShowForm(false) }
+  const resetForm = () => { setError(''); setFile(null); setForm(emptyForm); setEditingId(null); setShowForm(false) }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (editingId) await clientsService.update(editingId, form)
-    else await clientsService.create({ ...form, status: 'ACTIVE', createdAt: Date.now() })
-    resetForm()
+    if (!canEdit || saving) return
+    if (!form.name.trim() || !form.responsibleUserId) return setError('Captura el nombre y selecciona un responsable.')
+    if (!editingId && !file) return setError('Adjunta el documento de régimen fiscal.')
+    const data = { ...form, name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() }
+    setSaving(true)
+    setError('')
+    try {
+      if (file) await saveClientFile(editingId, data, file)
+      else if (editingId) await clientsService.update(editingId, { ...data, updatedAt: Date.now() })
+
+      resetForm()
+    } catch (err) { setError(err instanceof Error && !('code' in err) ? err.message : 'No se pudo guardar. Comprueba la conexión y los permisos del archivo fiscal.') }
+    finally { setSaving(false) }
   }
 
   const handleEdit = (c: Client) => {
-    setForm({ name: c.name, type: c.type, email: c.email, phone: c.phone })
+    setError('')
+    setFile(null)
+    setForm({ responsibleUserId: c.responsibleUserId || '', name: c.name, type: c.type, email: c.email, phone: c.phone })
     setEditingId(c.id)
     setShowForm(true)
   }
@@ -103,28 +121,44 @@ export default function ClientsPage() {
           </select>
           <input placeholder="Correo" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <input placeholder="Teléfono" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <button type="submit">{editingId ? 'Guardar cambios' : 'Crear cliente'}</button>
+          <label>Documento de régimen fiscal (PDF o Excel, máximo 900 KiB)
+            <input key={editingId || 'nuevo'} type="file" accept=".pdf,.xls,.xlsx" required={!editingId}
+              onChange={e => setFile(e.target.files?.[0] || null)} />
+          </label>
+          <label>Responsable
+            <select required value={form.responsibleUserId} onChange={e => setForm({ ...form, responsibleUserId: e.target.value })}>
+              <option value="">Selecciona un responsable</option>
+              {users.filter(u => u.active || u.id === form.responsibleUserId).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </label>
+          <button disabled={saving} type="submit">{editingId ? 'Guardar cambios' : 'Crear cliente'}</button>
         </form>
       )}
 
+      {error && <p role="alert">{error}</p>}
       {loading ? <p>Cargando…</p> : (
         <table className="data-table">
           <thead>
-            <tr><th>Cliente</th><th>Contacto</th><th className="num">Tareas activas</th><th className="num">Horas (mes)</th><th>Estatus</th><th></th></tr>
+            <tr><th>Cliente</th><th>Contacto</th><th>Responsable</th><th>Última modificación</th><th className="num">Tareas activas</th><th className="num">Horas (mes)</th><th>Estatus</th><th></th></tr>
           </thead>
           <tbody>
-            {visible.length === 0 && <tr><td colSpan={6} className="muted">No hay clientes con estos filtros.</td></tr>}
+            {visible.length === 0 && <tr><td colSpan={8} className="muted">No hay clientes con estos filtros.</td></tr>}
             {visible.map((c) => {
               const st = stats.get(c.id)
               return (
                 <tr key={c.id}>
-                  <td><strong>{c.name}</strong><br /><small className="muted">{TYPE_LABEL[c.type]}</small></td>
+                  <td><strong>{c.name}</strong><br /><small className="muted">{TYPE_LABEL[c.type]}</small>{canEdit && c.taxRegime && <><br /><small>{c.taxRegime}</small></>}
+                    {canEdit && c.hasFiscalFile && <><br /><button type="button" onClick={() =>
+                      downloadFiscalFile(c.id).catch(() => setError('No se pudo descargar el documento fiscal.'))}>Descargar documento fiscal</button></>}
+                  </td>
                   <td>{c.email || '—'}<br /><small className="muted">{c.phone}</small></td>
+                  <td>{users.find(u => u.id === c.responsibleUserId)?.name || c.responsibleUserId || 'Sin asignar'}</td>
+                  <td>{c.updatedAt ? new Date(c.updatedAt).toLocaleString('es-MX') : 'Sin fecha registrada'}</td>
                   <td className="num">{st?.tasks ?? 0}</td>
                   <td className="num">{formatHours(st?.seconds ?? 0)}</td>
                   <td>
                     {canEdit ? (
-                      <select className={'pill ' + STATUS_PILL[c.status]} value={c.status} onChange={(e) => clientsService.update(c.id, { status: e.target.value as ClientStatus })}>
+                      <select className={'pill ' + STATUS_PILL[c.status]} value={c.status} onChange={(e) => clientsService.update(c.id, { status: e.target.value as ClientStatus, updatedAt: Date.now() }).catch(() => setError('No se pudo cambiar el estatus.'))}>
                         {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                       </select>
                     ) : (
