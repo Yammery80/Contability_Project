@@ -25,12 +25,13 @@ interface Group {
   seconds: number
   children: Map<string, Group>
 }
-export function groupHours(rows: TimeEntry[]) {
-  const users = new Map<string, Group>()
+type GroupField = 'userId' | 'clientId' | 'projectId' | 'taskId' | 'description'
+export function groupHours(rows: TimeEntry[], fields: GroupField[] = ['userId', 'clientId', 'projectId', 'taskId']) {
+  const groups = new Map<string, Group>()
   for (const row of rows) {
-    let level = users
-    for (const id of [row.userId, row.clientId, row.projectId, row.taskId]) {
-      const key = id || ''
+    let level = groups
+    for (const field of fields) {
+      const key = row[field] || ''
       let group = level.get(key)
       if (!group) {
         group = { seconds: 0, children: new Map() }
@@ -40,5 +41,5 @@ export function groupHours(rows: TimeEntry[]) {
       level = group.children
     }
   }
-  return users
+  return groups
 }

@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { timeEntriesService } from '../timeTracker/timeTrackerService'
+import { projectsService } from '../projects/projectsService'
+import { tasksService } from '../tasks/tasksService'
+import { groupHours } from '../timeTracker/timeHistory'
 import { clientsService } from '../clients/clientsService'
 import { obligationsService } from '../obligations/obligationsService'
 import { useUsers } from '../users/useUsers'
-import { estimatedCharge, formatHours, formatMoney } from '../../services/billing'
+import { estimatedCharge, formatClock, formatMoney } from '../../services/billing'
 import { currentMonthValue, entryDate, inRange, monthLabel, monthOptions, monthRange } from '../../services/period'
-import { Client, Obligation, ObligationStatus, TimeEntry } from '../../models'
+import { Client, Obligation, ObligationStatus, Project, Task, TimeEntry } from '../../models'
 
 type ReportType = 'CLIENT_HOURS' | 'EMPLOYEE_HOURS' | 'OBLIGATIONS'
 
@@ -20,6 +23,8 @@ export default function ReportsPage() {
   const users = useUsers()
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [clients, setClients] = useState<Client[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
   const [obligations, setObligations] = useState<Obligation[]>([])
 
   const [type, setType] = useState<ReportType>('CLIENT_HOURS')
@@ -34,12 +39,14 @@ export default function ReportsPage() {
     const u1 = timeEntriesService.subscribe(setEntries)
     const u2 = clientsService.subscribe(setClients)
     const u3 = obligationsService.subscribe(setObligations)
-    return () => { u1(); u2(); u3() }
+    const u4 = projectsService.subscribe(setProjects)
+    const u5 = tasksService.subscribe(setTasks)
+    return () => { u1(); u2(); u3(); u4(); u5() }
   }, [])
 
   const range = monthRange(period)
-  const clientName = (id: string) => (id ? clients.find((c) => c.id === id)?.name ?? '—' : 'Sin cliente')
-  const userName = (id: string) => users.find((u) => u.id === id)?.name ?? '—'
+  const clientName = (id: string) => (id ? clients.find((c) => c.id === id)?.name ?? ('Cliente ' + id) : 'Sin cliente')
+  const userName = (id: string) => users.find((u) => u.id === id)?.name ?? (id || 'Sin colaborador')
 
   const filtered = useMemo(
     () => entries
@@ -52,13 +59,19 @@ export default function ReportsPage() {
   const rows = useMemo(() => {
     const keyOf = (e: TimeEntry) => (type === 'CLIENT_HOURS' ? e.clientId : e.userId)
     const groups = new Map<string, TimeEntry[]>()
-    filtered.forEach((e) => groups.set(keyOf(e), [...(groups.get(keyOf(e)) ?? []), e]))
+    for (const entry of filtered) {
+      const key = keyOf(entry)
+      const list = groups.get(key)
+      if (list) list.push(entry)
+      else groups.set(key, [entry])
+    }
     return [...groups.entries()]
       .map(([key, list]) => ({
         key,
         name: type === 'CLIENT_HOURS' ? clientName(key) : userName(key),
         seconds: list.reduce((s, e) => s + e.duration, 0),
         charge: estimatedCharge(list, users),
+        detail: groupHours(list, [type === 'CLIENT_HOURS' ? 'userId' : 'clientId', 'projectId', 'taskId', 'description']),
       }))
       .sort((a, b) => b.seconds - a.seconds)
   }, [filtered, type, clients, users]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -153,14 +166,34 @@ export default function ReportsPage() {
                   <div className="bar-row" key={r.key} style={{ gridTemplateColumns: withCharge ? '110px 1fr 56px 80px' : '110px 1fr 56px' }}>
                     <span className="bar-label">{r.name}</span>
                     <div className="bar-track"><div className="bar-fill" style={{ width: `${(r.seconds / maxSeconds) * 100}%` }} /></div>
-                    <span className="bar-value">{formatHours(r.seconds)}</span>
+                    <span className="bar-value">{formatClock(r.seconds)}</span>
                     {withCharge && <span className="bar-value">{formatMoney(r.charge)}</span>}
                   </div>
                 ))}
                 <div className="report-total">
                   <span>Total</span>
-                  <span>{formatHours(totalSeconds)}{withCharge && ` · ${formatMoney(totalCharge)}`}</span>
+                  <span>{formatClock(totalSeconds)}{withCharge && ` · ${formatMoney(totalCharge)}`}</span>
                 </div>
+                {rows.map(row => (
+                  <section key={row.key}>
+                    <h4>{row.name} · {formatClock(row.seconds)}</h4>
+                    <ul>{Array.from(row.detail, ([id, sub]) => (
+                      <li key={id}>{type === 'CLIENT_HOURS' ? userName(id) : clientName(id)} · {formatClock(sub.seconds)}
+                        <ul>{Array.from(sub.children, ([pid, project]) => (
+                          <li key={pid}>{projects.find(p => p.id === pid)?.name || (pid ? 'Proyecto ' + pid : 'Sin proyecto')} · {formatClock(project.seconds)}
+                            <ul>{Array.from(project.children, ([tid, task]) => (
+                              <li key={tid}>{tasks.find(t => t.id === tid)?.title || (tid ? 'Tarea ' + tid : 'Sin tarea')} · {formatClock(task.seconds)}
+                                <ul>{Array.from(task.children, ([activity, item]) => (
+                                  <li key={activity}>{activity || 'Sin descripción'} · {formatClock(item.seconds)}</li>
+                                ))}</ul>
+                              </li>
+                            ))}</ul>
+                          </li>
+                        ))}</ul>
+                      </li>
+                    ))}</ul>
+                  </section>
+                ))}
                 {withCharge && <p className="footnote">Cobro estimado con tarifas de ejemplo por nivel (pendientes de definir por la empresa).</p>}
               </>
             ) : (
