@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function user() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+    function client(id) {
+      return firestore.get(/databases/(default)/documents/clients/$(id)).data;
+    }
+    function active() {
+      return request.auth != null && user().active == true
+        && user().role in ['ADMIN','SUPERUSER','SUPERVISOR','OPERATOR'];
+    }
+    match /clients/{id}/documents/{fileId=**} {
+      allow read: if active() && firestore.exists(/databases/(default)/documents/clients/$(id));
+      allow create: if active()
+        && (user().role in ['SUPERVISOR','ADMIN','SUPERUSER']
+          ? firestore.exists(/databases/(default)/documents/clients/$(id))
+          : client(id).get('responsibleUserId','') == request.auth.uid)
+        && request.resource.size > 0 && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.metadata.authorId == request.auth.uid
+        && request.resource.metadata.authorName == user().name
+        && request.resource.metadata.filename.size() > 0 && request.resource.metadata.filename.size() <= 255;
+    }
+  }
+}

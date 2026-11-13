@@ -85,8 +85,24 @@ service cloud.firestore {
     // PROYECTOS
     // ==========================================
 
+    match /clients/{clientId}/contacts/{contactId} {
+      allow read: if hasAnyRole(['ADMIN','SUPERUSER','SUPERVISOR','OPERATOR']);
+      allow create: if hasAnyRole(['ADMIN','SUPERUSER'])
+        && exists(/databases/$(database)/documents/clients/$(clientId))
+        && request.resource.data.keys().hasOnly(['name','email','phone','position','primary','payments'])
+        && request.resource.data.primary is bool && request.resource.data.payments is bool
+        && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 150
+        && request.resource.data.position is string && request.resource.data.position.size() > 0
+        && request.resource.data.position.size() <= 120
+        && request.resource.data.email is string && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('[^ @]+@[^ @]+[.][^ @]+')
+        && request.resource.data.phone is string && request.resource.data.phone.size() <= 32
+        && request.resource.data.phone.matches('[+0-9() -]{7,32}');
+    }
+
     match /clients/{clientId}/fiscal/regime {
-      allow get: if hasAnyRole(['ADMIN','SUPERUSER']);
+      allow get: if hasAnyRole(['ADMIN','SUPERUSER','SUPERVISOR','OPERATOR']);
       allow create, update: if hasAnyRole(['ADMIN','SUPERUSER'])
         && getAfter(/databases/$(database)/documents/clients/$(clientId)).data.hasFiscalFile == true
         && request.resource.data.keys().hasOnly(['filename','mime','content','updatedAt'])
