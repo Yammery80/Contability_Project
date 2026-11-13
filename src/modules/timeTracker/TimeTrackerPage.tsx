@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { groupHours, historyRows, localDay, originLabel } from './timeHistory'
 import { can } from '../../services/permissions'
 import LateTimeInbox from './LateTimeInbox'
@@ -163,6 +164,7 @@ export default function TimeTrackerPage() {
       </dialog>
       {sent && <p role="status">Solicitud enviada a revisión. Las horas se sumarán al aprobarla.</p>}
 
+      {isOperator && <p><Link to="../expedientes">Consultar expediente de cliente</Link></p>}
       <div className="tracker-top">
         <div className="card">
           <h2>Mi semana <small>Meta 40 h</small></h2>

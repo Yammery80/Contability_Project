@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import React, { useEffect, useMemo, useState } from 'react'
 import { saveClientFile, downloadFiscalFile } from './fiscalFile'
 import { clientsService } from './clientsService'
@@ -165,7 +166,7 @@ export default function ClientsPage() {
                       <span className={'pill ' + STATUS_PILL[c.status]}>{STATUS_LABEL[c.status]}</span>
                     )}
                   </td>
-                  <td className="row-actions">{canEdit && <button onClick={() => handleEdit(c)}>Editar</button>}</td>
+                  <td className="row-actions"><Link to={`../expedientes/${c.id}`}>Expediente</Link> {canEdit && <button onClick={() => handleEdit(c)}>Editar</button>}</td>
                 </tr>
               )
             })}

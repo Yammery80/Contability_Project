@@ -14,6 +14,7 @@ import TrackedAppsPage from './modules/activities/TrackedAppsPage'
 import ActivityHistoryPage from './modules/activities/ActivityHistoryPage'
 import CaptureSettingsPage from './modules/activities/CaptureSettingsPage'
 import SuggestionsPage from './modules/suggestions/SuggestionsPage'
+import ClientDossier from './modules/clients/ClientDossier'
 import ClientsPage from './modules/clients/ClientsPage'
 import ProjectsPage from './modules/projects/ProjectsPage'
 import TasksPage from './modules/tasks/TasksPage'
@@ -54,6 +55,8 @@ export default function App() {
               </ProtectedRoute>
             }
           >
+            <Route path="expedientes" element={<ClientDossier />} />
+            <Route path="expedientes/:clientId" element={<ClientDossier />} />
             <Route index element={<DashboardPage />} />
             <Route path="tasks" element={<TasksPage onlyMine />} />
             <Route path="kanban" element={<KanbanPage onlyMine />} />
@@ -81,6 +84,8 @@ export default function App() {
               </ProtectedRoute>
             }
           >
+            <Route path="expedientes" element={<ClientDossier />} />
+            <Route path="expedientes/:clientId" element={<ClientDossier />} />
             <Route index element={<DashboardPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
@@ -111,6 +116,8 @@ export default function App() {
               </ProtectedRoute>
             }
           >
+            <Route path="expedientes" element={<ClientDossier />} />
+            <Route path="expedientes/:clientId" element={<ClientDossier />} />
             <Route index element={<DashboardPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="tracked-apps" element={<TrackedAppsPage />} />
