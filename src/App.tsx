@@ -65,14 +65,10 @@ export default function App() {
             <Route path="obligations" element={<ObligationsPage />} />
             <Route path="calendar" element={<FiscalCalendarPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
-            <Route
-              path="panel_user"
-              element={
-                <PanelUserPage
+            <Route path="panel-user" element={<PanelUserPage
                   isForced={false}
                   onSuccessChange={() => {}}
-                />
-              }
+            />}
             />
           </Route>
 
@@ -99,6 +95,11 @@ export default function App() {
             <Route path="calendar" element={<FiscalCalendarPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="panel-user" element={<PanelUserPage
+                  isForced={false}
+                  onSuccessChange={() => {}}
+            />}
+            />
           </Route>
 
           {/* ===== ADMIN ===== */}
@@ -126,6 +127,11 @@ export default function App() {
             <Route path="calendar" element={<FiscalCalendarPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="panel-user" element={<PanelUserPage
+                  isForced={false}
+                  onSuccessChange={() => {}}
+            />}
+            />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

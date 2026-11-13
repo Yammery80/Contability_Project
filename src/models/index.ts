@@ -15,6 +15,7 @@
    createdAt: number
    phone?: string
    position?: string // puesto
+   mustChangePassword?: boolean // HU-67: fuerza a cambiar contraseña al iniciar sesión
  }
 
  // ===== Cliente =====
