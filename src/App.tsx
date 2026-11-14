@@ -18,6 +18,9 @@ import ClientsPage from './modules/clients/ClientsPage'
 import ProjectsPage from './modules/projects/ProjectsPage'
 import ProjectDetailPage from './modules/projects/ProjectDetailPage'
 import TeamDashboardPage from './modules/dashboards/TeamDashboardPage'
+import TeamMemberPage from './modules/dashboards/TeamMemberPage'
+import RatesPage from './modules/billing/RatesPage'
+import CostsPage from './modules/billing/CostsPage'
 import TasksPage from './modules/tasks/TasksPage'
 import KanbanPage from './modules/tasks/KanbanPage'
 import TaskDetailPage from './modules/tasks/TaskDetailPage'
@@ -88,6 +91,7 @@ export default function App() {
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="projects/:projectId" element={<ProjectDetailPage />} />
             <Route path="team" element={<TeamDashboardPage />} />
+            <Route path="team/:userId" element={<TeamMemberPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="kanban" element={<KanbanPage />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
@@ -117,11 +121,14 @@ export default function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="rates" element={<RatesPage />} />
+            <Route path="costs" element={<CostsPage />} />
             <Route path="tracked-apps" element={<TrackedAppsPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="projects/:projectId" element={<ProjectDetailPage />} />
             <Route path="team" element={<TeamDashboardPage />} />
+            <Route path="team/:userId" element={<TeamMemberPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="kanban" element={<KanbanPage />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />

@@ -226,3 +226,31 @@
    rejectReason?: string // motivo cuando se rechaza
    rejectedAt?: number
  }
+
+ // ===== Tarifa por cliente y periodo (HU-48) =====
+ // Precio por hora que se le cobra a un cliente. validFrom/validTo son fechas
+ // "YYYY-MM-DD" inclusivas; validTo vacío = sin fecha de fin (tarifa vigente).
+ // Los periodos de un mismo cliente no se pueden traslapar.
+ export interface ClientRate {
+   id: string
+   clientId: string
+   hourlyRate: number // MXN por hora
+   validFrom: string
+   validTo: string // '' = abierta
+   createdAt: number
+   createdBy: string
+   isSeed?: boolean
+ }
+
+ // ===== Costo por hora de un colaborador (HU-49) =====
+ // Documento userCosts/{userId}. Vive en su propia colección (no en "users")
+ // porque "users" lo puede leer cualquier usuario activo y este dato es sensible:
+ // solo Administrador y Superusuario lo ven (ver firestore.rules).
+ export interface UserCost {
+   id: string // = id del usuario
+   hourlyCost: number // MXN por hora
+   updatedAt: number
+   updatedBy: string
+   isSeed?: boolean
+ }
+

@@ -37,6 +37,8 @@ const nav = (base: string, extra: NavItem[] = [], withClients = true): NavItem[]
 const ADMIN_NAV = nav('/admin', [
   { label: 'Usuarios', to: '/admin/users', section: 'Administración' },
   { label: 'Aplicaciones', to: '/admin/tracked-apps', section: 'Administración' },
+  { label: 'Tarifas por cliente', to: '/admin/rates', section: 'Administración' },
+  { label: 'Costo por hora', to: '/admin/costs', section: 'Administración' },
 ])
 
 const NAV_BY_ROLE: Record<Role, NavItem[]> = {

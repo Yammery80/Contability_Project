@@ -12,9 +12,11 @@ export type Permission =
   | 'reports.view'      // reportes
   | 'team.view'         // ver horas y avance de todo el equipo
   | 'capture.configure' // definir qué aplicaciones registra Lea Memory
+  | 'rates.manage'      // HU-48: tarifas por cliente y periodo
+  | 'costs.manage'      // HU-49: costo por hora de cada colaborador (dato sensible)
 
 const SUPERVISOR_PERMS: Permission[] = ['tasks.create', 'obligations.manage', 'reports.view', 'team.view']
-const ADMIN_PERMS: Permission[] = [...SUPERVISOR_PERMS, 'users.manage', 'clients.edit', 'projects.edit', 'capture.configure']
+const ADMIN_PERMS: Permission[] = [...SUPERVISOR_PERMS, 'users.manage', 'clients.edit', 'projects.edit', 'capture.configure', 'rates.manage', 'costs.manage']
 
 const PERMS: Record<Role, Permission[]> = {
   OPERATOR: [],
@@ -53,10 +55,10 @@ export const ROLE_SUMMARY: Record<Role, { can: string[]; cannot: string[] }> = {
       'Ver horas y avance de todo el equipo',
       'Consultar y exportar reportes',
     ],
-    cannot: ['Crear o editar clientes y proyectos', 'Gestionar usuarios'],
+    cannot: ['Crear o editar clientes y proyectos', 'Gestionar usuarios', 'Definir tarifas ni ver el costo por hora de los colaboradores'],
   },
   ADMIN: {
-    can: ['Todo lo del Supervisor', 'Crear y editar clientes y proyectos', 'Gestionar usuarios y asignar roles', 'Definir qué aplicaciones registra Lea Memory'],
+    can: ['Todo lo del Supervisor', 'Crear y editar clientes y proyectos', 'Gestionar usuarios y asignar roles', 'Definir qué aplicaciones registra Lea Memory', 'Definir tarifas por cliente y el costo por hora de los colaboradores'],
     cannot: ['Crear o modificar cuentas de Superusuario'],
   },
   SUPERUSER: {

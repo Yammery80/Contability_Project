@@ -5,10 +5,11 @@ import { tasksService } from '../tasks/tasksService'
 import { groupHours } from '../timeTracker/timeHistory'
 import { clientsService } from '../clients/clientsService'
 import { obligationsService } from '../obligations/obligationsService'
+import { clientRatesService } from '../billing/ratesService'
 import { useUsers } from '../users/useUsers'
-import { estimatedCharge, formatClock, formatMoney } from '../../services/billing'
+import { estimatedCharge, unpricedSeconds, formatClock, formatMoney } from '../../services/billing'
 import { currentMonthValue, entryDate, inRange, monthLabel, monthOptions, monthRange } from '../../services/period'
-import { Client, Obligation, ObligationStatus, Project, Task, TimeEntry } from '../../models'
+import { Client, ClientRate, Obligation, ObligationStatus, Project, Task, TimeEntry } from '../../models'
 
 type ReportType = 'CLIENT_HOURS' | 'EMPLOYEE_HOURS' | 'OBLIGATIONS'
 
@@ -26,6 +27,7 @@ export default function ReportsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [obligations, setObligations] = useState<Obligation[]>([])
+  const [rates, setRates] = useState<ClientRate[]>([])
 
   const [type, setType] = useState<ReportType>('CLIENT_HOURS')
   const [period, setPeriod] = useState(currentMonthValue())
@@ -41,7 +43,8 @@ export default function ReportsPage() {
     const u3 = obligationsService.subscribe(setObligations)
     const u4 = projectsService.subscribe(setProjects)
     const u5 = tasksService.subscribe(setTasks)
-    return () => { u1(); u2(); u3(); u4(); u5() }
+    const u6 = clientRatesService.subscribe(setRates)
+    return () => { u1(); u2(); u3(); u4(); u5(); u6() }
   }, [])
 
   const range = monthRange(period)
@@ -70,11 +73,11 @@ export default function ReportsPage() {
         key,
         name: type === 'CLIENT_HOURS' ? clientName(key) : userName(key),
         seconds: list.reduce((s, e) => s + e.duration, 0),
-        charge: estimatedCharge(list, users),
+        charge: estimatedCharge(list, rates),
         detail: groupHours(list, [type === 'CLIENT_HOURS' ? 'userId' : 'clientId', 'projectId', 'taskId', 'description']),
       }))
       .sort((a, b) => b.seconds - a.seconds)
-  }, [filtered, type, clients, users]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filtered, type, clients, users, rates]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const obligationRows = obligations
     .filter((o) => !clientId || o.clientId === clientId)
@@ -86,6 +89,7 @@ export default function ReportsPage() {
   const maxSeconds = Math.max(1, ...rows.map((r) => r.seconds))
   const totalSeconds = rows.reduce((s, r) => s + r.seconds, 0)
   const totalCharge = rows.reduce((s, r) => s + r.charge, 0)
+  const unpriced = unpricedSeconds(filtered, rates)
   const isHours = type !== 'OBLIGATIONS'
 
   return (
@@ -194,7 +198,12 @@ export default function ReportsPage() {
                     ))}</ul>
                   </section>
                 ))}
-                {withCharge && <p className="footnote">Cobro estimado con tarifas de ejemplo por nivel (pendientes de definir por la empresa).</p>}
+                {withCharge && (
+                  <p className="footnote">
+                    Cobro estimado con la tarifa vigente de cada cliente en la fecha trabajada.
+                    {unpriced > 0 && ` ${formatClock(unpriced)} corresponden a clientes o fechas sin tarifa definida y no se incluyen en el cobro.`}
+                  </p>
+                )}
               </>
             ) : (
               <>

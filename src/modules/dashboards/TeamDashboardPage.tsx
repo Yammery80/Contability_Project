@@ -3,7 +3,8 @@ import { tasksService } from '../tasks/tasksService'
 import { isOverdue } from '../tasks/TasksPage'
 import { timeEntriesService, startOfWeek } from '../timeTracker/timeTrackerService'
 import { useUsers } from '../users/useUsers'
-import { useAuth } from '../../hooks/useAuth'
+import { Link } from 'react-router-dom'
+import { useAuth, homeRouteForRole } from '../../hooks/useAuth'
 import { formatHours } from '../../services/billing'
 import { currentMonthValue, initials, monthOptions, monthRange } from '../../services/period'
 import { Task, TimeEntry } from '../../models'
@@ -35,6 +36,7 @@ export default function TeamDashboardPage() {
   )
 
   if (!profile) return null
+  const base = homeRouteForRole(profile.role)
 
   const rows = stats
     .filter((s) => !onlyProblems || s.overdueTasks > 0 || s.weekSeconds < (WEEKLY_TARGET_HOURS * 3600) * 0.5)
@@ -109,7 +111,7 @@ export default function TeamDashboardPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
                         <div className="avatar avatar-sm">{initials(r.user.name)}</div>
                         <div>
-                          {r.user.name}
+                          <Link to={`${base}/team/${r.user.id}`}>{r.user.name}</Link>
                           {r.runningNow && <small style={{ color: 'var(--ok)', marginLeft: '.4rem' }}>● en curso</small>}
                           <br /><small className="muted">{r.user.position ?? 'Colaborador'}</small>
                         </div>

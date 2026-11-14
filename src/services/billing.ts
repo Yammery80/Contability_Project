@@ -1,7 +1,9 @@
-import { AppUser, Role, TimeEntry } from '../models'
+import { AppUser, ClientRate, Role, TimeEntry } from '../models'
+import { entryDate } from './period'
 
-// Nivel del empleado para el cálculo del cobro estimado (ver diseño
-// "Registro de tiempos": Junior / Senior / Administrador).
+// Nivel del empleado (ver diseño "Registro de tiempos": Junior / Senior /
+// Administrador). Se usa para etiquetar registros y para la distribución del
+// tiempo; ya NO define el cobro (eso lo hacen las tarifas por cliente).
 export type UserLevel = 'JUNIOR' | 'SENIOR' | 'ADMIN'
 
 export const LEVEL_LABEL: Record<UserLevel, string> = {
@@ -18,20 +20,51 @@ export function levelForRole(role: Role | undefined): UserLevel {
   return 'JUNIOR'
 }
 
-// TARIFAS DE EJEMPLO (MXN por hora). Las fórmulas/tarifas reales de
-// rentabilidad están pendientes de la empresa — reemplazar aquí.
-export const HOURLY_RATE: Record<UserLevel, number> = {
-  JUNIOR: 250,
-  SENIOR: 400,
-  ADMIN: 600,
-}
-
 export function entryLevel(entry: TimeEntry, users: AppUser[]): UserLevel {
   return levelForRole(users.find((u) => u.id === entry.userId)?.role)
 }
 
-export function estimatedCharge(entries: TimeEntry[], users: AppUser[]): number {
-  return entries.reduce((sum, e) => sum + (e.duration / 3600) * HOURLY_RATE[entryLevel(e, users)], 0)
+// ===== Cobro estimado con tarifas reales por cliente y periodo (HU-48) =====
+
+// Fecha local "YYYY-MM-DD" de un instante en ms.
+export function toDateStr(ms: number): string {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const OPEN_END = '9999-12-31'
+
+// Tarifa del cliente vigente en esa fecha (ms). undefined = no hay tarifa definida.
+export function rateFor(rates: ClientRate[], clientId: string, atMs: number): number | undefined {
+  const day = toDateStr(atMs)
+  return rates.find((r) => r.clientId === clientId && r.validFrom <= day && day <= (r.validTo || OPEN_END))?.hourlyRate
+}
+
+// El registro se cobra con la tarifa vigente del cliente en la fecha en que se trabajó.
+export function estimatedCharge(entries: TimeEntry[], rates: ClientRate[]): number {
+  return entries.reduce((sum, e) => {
+    const rate = rateFor(rates, e.clientId, entryDate(e))
+    return rate === undefined ? sum : sum + (e.duration / 3600) * rate
+  }, 0)
+}
+
+// Segundos que no se pudieron cobrar porque no había tarifa (para avisarlo en pantalla).
+export function unpricedSeconds(entries: TimeEntry[], rates: ClientRate[]): number {
+  return entries.reduce((sum, e) => (rateFor(rates, e.clientId, entryDate(e)) === undefined ? sum + e.duration : sum), 0)
+}
+
+// Valida un periodo nuevo contra los existentes del mismo cliente. Devuelve el mensaje de error o null.
+export function validateRatePeriod(
+  existing: ClientRate[],
+  candidate: { clientId: string; hourlyRate: number; validFrom: string; validTo: string }
+): string | null {
+  if (!candidate.validFrom) return 'Indica desde cuándo aplica la tarifa.'
+  if (!(candidate.hourlyRate > 0)) return 'La tarifa debe ser mayor a 0.'
+  if (candidate.validTo && candidate.validTo < candidate.validFrom) return 'La fecha final no puede ser anterior a la inicial.'
+  const end = candidate.validTo || OPEN_END
+  const clash = existing.find((r) => r.clientId === candidate.clientId && candidate.validFrom <= (r.validTo || OPEN_END) && r.validFrom <= end)
+  if (clash) return `Se traslapa con una tarifa existente (${clash.validFrom} → ${clash.validTo || 'sin fin'}).`
+  return null
 }
 
 export function formatMoney(n: number): string {

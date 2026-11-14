@@ -7,10 +7,11 @@ import { projectsService } from '../projects/projectsService'
 import { clientsService } from '../clients/clientsService'
 import { obligationsService, obligationSemaphore } from '../obligations/obligationsService'
 import { timeEntriesService } from '../timeTracker/timeTrackerService'
+import { clientRatesService } from '../billing/ratesService'
 import { useUsers } from '../users/useUsers'
-import { entryLevel, estimatedCharge, formatCompactMoney, formatHours } from '../../services/billing'
+import { entryLevel, estimatedCharge, unpricedSeconds, formatCompactMoney, formatHours } from '../../services/billing'
 import { currentMonthValue, entryDate, inRange, monthOptions, monthRange } from '../../services/period'
-import { Client, Obligation, Project, Task, TimeEntry } from '../../models'
+import { Client, ClientRate, Obligation, Project, Task, TimeEntry } from '../../models'
 
 function StatCard({ label, value, sub, highlight }: { label: string; value: React.ReactNode; sub?: string; highlight?: boolean }) {
   return (
@@ -46,6 +47,7 @@ export default function DashboardPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [obligations, setObligations] = useState<Obligation[]>([])
   const [entries, setEntries] = useState<TimeEntry[]>([])
+  const [rates, setRates] = useState<ClientRate[]>([])
 
   const [period, setPeriod] = useState(currentMonthValue())
   const [employee, setEmployee] = useState('')
@@ -65,6 +67,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!profile) return
     return timeEntriesService.subscribe(setEntries, isOperator ? [where('userId', '==', profile.id)] : [])
+  }, [profile, isOperator])
+
+  // Las tarifas (HU-48) las leen Supervisor/Admin; el Operador no ve cobros.
+  useEffect(() => {
+    if (!profile || isOperator) return
+    return clientRatesService.subscribe(setRates)
   }, [profile, isOperator])
 
   const clientOfProject = useMemo(() => new Map(projects.map((p) => [p.id, p.clientId])), [projects])
@@ -105,6 +113,7 @@ export default function DashboardPage() {
   const byEmployee = group((e) => e.userId, (k) => users.find((u) => u.id === k)?.name ?? '—')
   const byClient = group((e) => e.clientId, (k) => (k ? clients.find((c) => c.id === k)?.name ?? '—' : 'Sin cliente'))
 
+  const unpriced = unpricedSeconds(current, rates)
   const adminSeconds = current.filter((e) => entryLevel(e, users) === 'ADMIN').reduce((s, e) => s + e.duration, 0)
   const adminPct = totalSeconds > 0 ? Math.round((adminSeconds / totalSeconds) * 100) : 0
 
@@ -139,7 +148,7 @@ export default function DashboardPage() {
         <StatCard label="Horas totales" value={formatHours(totalSeconds)} sub={delta === null ? 'Sin datos del mes anterior' : `${delta >= 0 ? '+' : ''}${delta}% vs. mes anterior`} />
         <StatCard label="Tareas activas" value={active.length} sub={`${soon.length} próximas a vencer`} />
         <StatCard label="Tareas vencidas" value={overdue.length} sub="requieren atención" />
-        {!isOperator && <StatCard highlight label="Cobro estimado" value={formatCompactMoney(estimatedCharge(current, users))} sub="según tarifa por nivel (ejemplo)" />}
+        {!isOperator && <StatCard highlight label="Cobro estimado" value={formatCompactMoney(estimatedCharge(current, rates))} sub={unpriced > 0 ? `${formatHours(unpriced)} sin tarifa definida` : 'según tarifa vigente por cliente'} />}
       </div>
 
       {!isOperator && (
