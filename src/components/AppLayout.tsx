@@ -17,6 +17,7 @@ interface NavItem {
 
 const nav = (base: string, extra: NavItem[] = [], withClients = true): NavItem[] => [
   { label: 'Dashboard', to: base },
+  ...(withClients ? [{ label: 'Dashboard del equipo', to: `${base}/team` }] : []),
   { label: 'Tareas', to: `${base}/tasks` },
   { label: 'Tablero Kanban', to: `${base}/kanban` },
   { label: 'Registro de tiempos', to: `${base}/time-tracker` },

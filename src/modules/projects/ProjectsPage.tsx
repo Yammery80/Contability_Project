@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { projectsService } from './projectsService'
 import { clientsService } from '../clients/clientsService'
 import { usersService } from '../users/usersService'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuth, homeRouteForRole } from '../../hooks/useAuth'
 import { can } from '../../services/permissions'
 import { Project, ProjectStatus, Client, AppUser } from '../../models'
 
@@ -18,6 +19,7 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 export default function ProjectsPage() {
   const { profile } = useAuth()
   const canEdit = can(profile?.role, 'projects.edit') // solo Administrador / Superusuario
+  const base = homeRouteForRole(profile?.role)
   const [projects, setProjects] = useState<Project[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [supervisors, setSupervisors] = useState<AppUser[]>([])
@@ -79,7 +81,7 @@ export default function ProjectsPage() {
           <tbody>
             {projects.map((p) => (
               <tr key={p.id}>
-                <td>{p.name}<br /><small>{p.description}</small></td>
+                <td><Link to={`${base}/projects/${p.id}`}>{p.name}</Link><br /><small>{p.description}</small></td>
                 <td>{clientName(p.clientId)}</td>
                 <td>{supervisorName(p.supervisorId)}</td>
                 <td><span className={'status-pill status-' + p.status.toLowerCase()}>{STATUS_LABEL[p.status]}</span></td>

@@ -16,6 +16,7 @@
    phone?: string
    position?: string // puesto
    mustChangePassword?: boolean // HU-67: fuerza a cambiar contraseña al iniciar sesión
+   isSeed?: boolean
  }
 
  // ===== Cliente =====
@@ -34,6 +35,7 @@
    email: string
    phone: string
    createdAt: number
+   isSeed?: boolean
  }
 
  // ===== Proyecto =====
@@ -48,6 +50,7 @@
    startDate: string
    endDate: string
    supervisorId: string
+   isSeed?: boolean
  }
 
  // ===== Tarea =====
@@ -66,6 +69,15 @@
    userName: string
    text: string
    createdAt: number
+ }
+
+ // HU-22: cada cambio de estado queda registrado con fecha y usuario.
+ export interface StatusChange {
+   from: TaskStatus
+   to: TaskStatus
+   userId: string
+   userName: string
+   changedAt: number // ms
  }
 
  export interface Task {
@@ -89,6 +101,8 @@
      userName: string
      completedAt: number
    }[]
+   statusHistory?: StatusChange[] // HU-22
+   isSeed?: boolean // dato de prueba (scripts/seed.mjs); se borra en el Sprint 4
  }
 
  // ===== Registro de tiempo =====
@@ -107,6 +121,7 @@
    description: string
    type: TimeEntryType
    status: 'RUNNING' | 'PAUSED' | 'STOPPED'
+   isSeed?: boolean
  }
 
  // ===== Obligación =====

@@ -14,9 +14,10 @@ import TrackedAppsPage from './modules/activities/TrackedAppsPage'
 import ActivityHistoryPage from './modules/activities/ActivityHistoryPage'
 import CaptureSettingsPage from './modules/activities/CaptureSettingsPage'
 import SuggestionsPage from './modules/suggestions/SuggestionsPage'
-import ClientDossier from './modules/clients/ClientDossier'
 import ClientsPage from './modules/clients/ClientsPage'
 import ProjectsPage from './modules/projects/ProjectsPage'
+import ProjectDetailPage from './modules/projects/ProjectDetailPage'
+import TeamDashboardPage from './modules/dashboards/TeamDashboardPage'
 import TasksPage from './modules/tasks/TasksPage'
 import KanbanPage from './modules/tasks/KanbanPage'
 import TaskDetailPage from './modules/tasks/TaskDetailPage'
@@ -55,8 +56,6 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="expedientes" element={<ClientDossier />} />
-            <Route path="expedientes/:clientId" element={<ClientDossier />} />
             <Route index element={<DashboardPage />} />
             <Route path="tasks" element={<TasksPage onlyMine />} />
             <Route path="kanban" element={<KanbanPage onlyMine />} />
@@ -84,11 +83,11 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="expedientes" element={<ClientDossier />} />
-            <Route path="expedientes/:clientId" element={<ClientDossier />} />
             <Route index element={<DashboardPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
+            <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+            <Route path="team" element={<TeamDashboardPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="kanban" element={<KanbanPage />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />
@@ -116,13 +115,13 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="expedientes" element={<ClientDossier />} />
-            <Route path="expedientes/:clientId" element={<ClientDossier />} />
             <Route index element={<DashboardPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="tracked-apps" element={<TrackedAppsPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
+            <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+            <Route path="team" element={<TeamDashboardPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="kanban" element={<KanbanPage />} />
             <Route path="tasks/:taskId" element={<TaskDetailPage />} />

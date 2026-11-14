@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import { where } from 'firebase/firestore'
 import { tasksService } from './tasksService'
 import { STATUS_LABEL, PRIORITY_LABEL, isOverdue } from './TasksPage'
+import { buildStatusPatch } from './statusHistory'
 import { projectsService } from '../projects/projectsService'
 import { clientsService } from '../clients/clientsService'
 import { timeEntriesService } from '../timeTracker/timeTrackerService'
@@ -79,26 +80,7 @@ export default function TaskDetailPage() {
     if (!task || status === task.status) return
 
     try {
-      const patch: Partial<Task> = { status }
-
-      if (status === 'COMPLETED') {
-        const now = Date.now()
-
-        patch.completedAt = now
-        patch.completedBy = profile.id
-        patch.completionHistory = [
-          ...(task.completionHistory ?? []),
-          {
-            userId: profile.id,
-            userName: profile.name,
-            completedAt: now
-          }
-        ]
-      } else if (task.status === 'COMPLETED') {
-        // Conservamos el historial de finalizaciones anteriores.
-        patch.completedAt = 0
-        patch.completedBy = ''
-      }
+      const patch = buildStatusPatch(task, status, profile)
 
       await save(patch)
       if (status === 'COMPLETED' && project?.supervisorId && project.supervisorId !== profile.id) {
@@ -337,6 +319,34 @@ export default function TaskDetailPage() {
               <label>Horas estimadas</label>
               <input type="number" min="0" step="0.5" value={task.estimatedHours ?? 0} disabled={isOperator} onChange={(e) => save({ estimatedHours: Number(e.target.value) })} />
             </div>
+          </div>
+
+          <div className="card task-detail-history">
+            <h2>Historial de cambios de estado {!!task.statusHistory?.length && <small>{task.statusHistory.length}</small>}</h2>
+
+            {!task.statusHistory?.length ? (
+              <p className="module-note">
+                Esta tarea todavía no tiene cambios de estado registrados.
+              </p>
+            ) : (
+              <div className="stack">
+                {[...task.statusHistory]
+                  .sort((a, b) => b.changedAt - a.changedAt)
+                  .map((change, index) => (
+                    <div className="detail-row" key={`${change.changedAt}-${index}`}>
+                      <div>
+                        <strong>{change.userName}</strong>
+                        <p className="module-note">
+                          {STATUS_LABEL[change.from] ?? change.from} → {STATUS_LABEL[change.to] ?? change.to}
+                        </p>
+                      </div>
+                      <small>
+                        {new Date(change.changedAt).toLocaleString('es-MX')}
+                      </small>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
 
           <div className="card task-detail-history">

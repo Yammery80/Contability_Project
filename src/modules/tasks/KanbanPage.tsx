@@ -8,6 +8,7 @@ import { useUsers } from '../users/useUsers'
 import { useAuth, homeRouteForRole } from '../../hooks/useAuth'
 import { Task, TaskStatus, Project, Client } from '../../models'
 import { STATUS_LABEL, PRIORITY_LABEL, isOverdue } from './TasksPage'
+import { buildStatusPatch } from './statusHistory'
 import './tasksPage.css'
 
 const COLUMNS: TaskStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLETED']
@@ -71,26 +72,7 @@ export default function KanbanPage({ onlyMine = false }: { onlyMine?: boolean })
     setError('')
 
     try {
-      const patch: Partial<Task> = { status }
-
-      if (status === 'COMPLETED') {
-        const now = Date.now()
-
-        patch.completedAt = now
-        patch.completedBy = profile.id
-        patch.completionHistory = [
-          ...(task.completionHistory ?? []),
-          {
-            userId: profile.id,
-            userName: profile.name,
-            completedAt: now
-          }
-        ]
-      } else if (task.status === 'COMPLETED') {
-        // Se conserva el historial de finalizaciones.
-        patch.completedAt = 0
-        patch.completedBy = ''
-      }
+      const patch = buildStatusPatch(task, status, profile)
 
       await tasksService.update(task.id, patch)
     } catch (err) {
