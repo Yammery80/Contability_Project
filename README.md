@@ -53,7 +53,7 @@ src/
     ├── obligations/  # Obligaciones con semáforo visual (datos de ejemplo)
     ├── notifications/# Estructura base de notificaciones
     ├── dashboards/   # Dashboard adaptado por rol
-    └── reports/      # Estructura de reportes (rentabilidad con datos mock)
+    └── reports/      # Reportes de horas, obligaciones y rentabilidad (datos reales), con descarga CSV y Excel
 ```
 
 ## 4. Rutas y roles

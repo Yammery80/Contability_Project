@@ -14,9 +14,10 @@ export type Permission =
   | 'capture.configure' // definir qué aplicaciones registra Lea Memory
   | 'rates.manage'      // HU-48: tarifas por cliente y periodo
   | 'costs.manage'      // HU-49: costo por hora de cada colaborador (dato sensible)
+  | 'profitability.view' // HU-50/51: costo operativo y margen (depende del costo por hora)
 
 const SUPERVISOR_PERMS: Permission[] = ['tasks.create', 'obligations.manage', 'reports.view', 'team.view']
-const ADMIN_PERMS: Permission[] = [...SUPERVISOR_PERMS, 'users.manage', 'clients.edit', 'projects.edit', 'capture.configure', 'rates.manage', 'costs.manage']
+const ADMIN_PERMS: Permission[] = [...SUPERVISOR_PERMS, 'users.manage', 'clients.edit', 'projects.edit', 'capture.configure', 'rates.manage', 'costs.manage', 'profitability.view']
 
 const PERMS: Record<Role, Permission[]> = {
   OPERATOR: [],
