@@ -1,0 +1,67 @@
+
+name: Pruebas E2E con Playwright
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar pruebas Playwright
+        run: npx playwright test
+
+      - name: Guardar reporte
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Notificar resultados en Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Webhook no disponible; se omite notificación"
+            exit 0
+          fi
+
+          if [ "$JOB_STATUS" = "success" ]; then
+            MESSAGE="✅ Playwright: pruebas aprobadas"
+          else
+            MESSAGE="❌ Playwright: ejecución fallida"
+          fi
+
+          jq -n \
+            --arg text "$MESSAGE | $REPOSITORY | https://github.com/$REPOSITORY/actions/runs/$RUN_ID" \
+            '{text: $text}' |
+          curl --fail-with-body -sS \
+            -X POST \
+            -H "Content-type: application/json" \
+            --data-binary @- \
+            "$SLACK_WEBHOOK_URL"
