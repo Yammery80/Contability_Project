@@ -95,3 +95,10 @@ obligación, fórmulas definitivas de rentabilidad, ni integraciones con Koy o
 LIA Memory. Los módulos de **Obligaciones** y **Reportes → Rentabilidad**
 están preparados con datos ficticios para poder ajustarse fácilmente cuando
 la empresa entregue esa información.
+
+
+## Compilación local
+
+Desde la raíz del proyecto, ejecuta `npm ci` para instalar las dependencias
+y `npm run build` para comprobar el código TypeScript y generar la aplicación
+en la carpeta `dist/`.
