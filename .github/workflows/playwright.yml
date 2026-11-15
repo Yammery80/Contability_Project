@@ -37,3 +37,31 @@ jobs:
           name: playwright-report
           path: playwright-report/
           if-no-files-found: ignore
+
+      - name: Notificar resultados en Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Webhook no disponible; se omite notificación"
+            exit 0
+          fi
+
+          if [ "$JOB_STATUS" = "success" ]; then
+            MESSAGE="✅ Playwright: pruebas aprobadas"
+          else
+            MESSAGE="❌ Playwright: ejecución fallida"
+          fi
+
+          jq -n \
+            --arg text "$MESSAGE | $REPOSITORY | https://github.com/$REPOSITORY/actions/runs/$RUN_ID" \
+            '{text: $text}' |
+          curl --fail-with-body -sS \
+            -X POST \
+            -H "Content-type: application/json" \
+            --data-binary @- \
+            "$SLACK_WEBHOOK_URL"
