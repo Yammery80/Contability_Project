@@ -1,0 +1,61 @@
+name: Construcción
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compilar:
+    name: Compilar aplicación
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  notificar:
+    name: Avisar a Slack
+    needs: compilar
+    if: >-
+      ${{ always() &&
+          (needs.compilar.result == 'success' || needs.compilar.result == 'failure') &&
+          (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) &&
+          github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Publicar resultado
+        env:
+          WEBHOOK: ${{ secrets.SLACK_BUILD_WEBHOOK_URL }}
+          RESULTADO: ${{ needs.compilar.result }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [[ -z "$WEBHOOK" ]]; then
+            echo "::error::Configura el secreto SLACK_BUILD_WEBHOOK_URL en GitHub."
+            exit 1
+          fi
+
+          estado="✅ Compilación exitosa"
+          if [[ "$RESULTADO" == "failure" ]]; then
+            estado="❌ Compilación fallida"
+          fi
+
+          origen="$GITHUB_REF_NAME"
+          if [[ -n "$PR" ]]; then
+            origen="PR #$PR"
+          fi
+
+          enlace="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          payload=$(jq -n --arg text "$estado · $GITHUB_REPOSITORY · $origen · <$enlace|Ver ejecución>" '{text: $text}')
+          curl --silent --show-error --fail --max-time 20 \
+            -H 'Content-Type: application/json' --data "$payload" "$WEBHOOK" >/dev/null
