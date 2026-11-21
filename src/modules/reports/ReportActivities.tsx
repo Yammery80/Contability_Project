@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { FirebaseError } from 'firebase/app'
+import { firebaseConfig } from '../../firebase/config'
 import type { AppUser, Client } from '../../models'
 import { type ActivityRecord, detailHeaders, detailValues, missingFields } from './activityDetail'
 import { saveReportDetail } from './saveReportDetail'
@@ -10,7 +12,26 @@ interface DirectoryProps {
   canEditClient: boolean
 }
 
-function DetailForm({ row, clients, users, canEditClient, onClose }: DirectoryProps & { row: ActivityRecord; onClose: () => void }) {
+function saveErrorMessage(error: unknown): string {
+  if (!(error instanceof FirebaseError)) {
+    return error instanceof Error ? error.message : 'No se pudo guardar el detalle. Vuelve a intentarlo.'
+  }
+  switch (error.code) {
+    case 'permission-denied':
+      return `Firestore denegó el guardado en ${firebaseConfig.projectId} (permission-denied). Pide al administrador que revise tu acceso y las reglas de Reportes de ese proyecto.`
+    case 'unauthenticated':
+      return 'Tu sesión caducó. Copia lo que escribiste y vuelve a iniciar sesión.'
+    case 'unavailable':
+    case 'deadline-exceeded':
+      return 'Firestore no respondió. Conserva el formulario abierto y vuelve a guardar cuando tengas conexión.'
+    default:
+      return `No se pudo guardar el detalle (${error.code}). Vuelve a intentarlo.`
+  }
+}
+
+function DetailForm({ row, clients, users, canEditClient, onSave, onCancel }: DirectoryProps & {
+  row: ActivityRecord; onSave: () => void; onCancel: () => void
+}) {
   const [draft, setDraft] = useState(row.detail)
   const [originalGiro, setOriginalGiro] = useState(row.businessActivity)
   const [giro, setGiro] = useState(row.businessActivity)
@@ -37,9 +58,9 @@ function DetailForm({ row, clients, users, canEditClient, onClose }: DirectoryPr
     setError('')
     try {
       await saveReportDetail(row, detail, canEditClient && client ? { before: originalGiro, after: giro.trim() } : undefined)
-      onClose()
+      onSave()
     } catch (err) {
-      setError(err instanceof Error && !('code' in err) ? err.message : 'No se pudo guardar. Revisa la conexión y los permisos de Reportes.')
+      setError(saveErrorMessage(err))
     } finally { setSaving(false) }
   }
 
@@ -77,27 +98,34 @@ function DetailForm({ row, clients, users, canEditClient, onClose }: DirectoryPr
       </label>
       {error && <p role="alert">{error}</p>}
       <div><button type="submit" className="btn">{saving ? 'Guardando…' : 'Guardar detalle'}</button>
-        {' '}<button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button></div>
+        {' '}<button type="button" className="btn btn-ghost" onClick={onCancel}>Cancelar</button></div>
     </fieldset>
   </form>
 }
 
 export default function ReportActivities({ records, clients, users, canEditClient }: DirectoryProps & { records: ActivityRecord[] }) {
   const [editing, setEditing] = useState<ActivityRecord | null>(null)
+  const [savedId, setSavedId] = useState<string | null>(null)
   if (!records.length) return null
   return <section className="report-activities">
     <h4>Detalle de actividades por cliente</h4>
     {records.map(row => {
       const values = detailValues(row)
       const missing = missingFields(row.detail)
+      const isEditing = editing?.id === row.id && editing.kind === row.kind
       return <article key={row.id} className="report-activity">
         <dl>{detailHeaders(row.kind).map((label, i) =>
           <div key={label}><dt>{label}</dt><dd>{values[i] || 'Sin registrar'}</dd></div>)}</dl>
-        {missing.length > 0 && <p className="footnote">Falta completar {missing.join(', ')}.</p>}
-        {editing?.id === row.id && editing.kind === row.kind
-          ? <DetailForm key={row.id} row={editing} clients={clients} users={users} canEditClient={canEditClient} onClose={() => setEditing(null)} />
-          : <button type="button" className="btn btn-ghost no-print" onClick={() => setEditing(row)}>
+        {missing.length > 0 && !isEditing && <p className="footnote">Falta completar {missing.join(', ')}.</p>}
+        {isEditing
+          ? <DetailForm key={row.id} row={editing} clients={clients} users={users} canEditClient={canEditClient}
+              onSave={() => {
+                setSavedId(row.id)
+                setEditing(current => current === editing ? null : current)
+              }} onCancel={() => setEditing(null)} />
+          : <button type="button" className="btn btn-ghost no-print" onClick={() => { setSavedId(null); setEditing(row) }}>
             {missing.length ? 'Completar detalle' : 'Editar detalle'}</button>}
+        {savedId === row.id && <p role="status" className="footnote no-print">Detalle guardado.</p>}
       </article>
     })}
   </section>

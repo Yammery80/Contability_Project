@@ -18,7 +18,11 @@ try {
       write('users/u', { role: 'OPERATOR', active: true }), write('clients/c', { name: 'Cliente demo' }),
       write('timeEntries/t', { status: 'STOPPED', userId: 'u', clientId: 'c', type: 'MANUAL', duration: 3600 }),
       write('timeEntries/r', { status: 'RUNNING', userId: 'u', clientId: 'c', type: 'TIMER' }),
+      write('timeEntries/legado', { status: 'STOPPED', userId: 'u', projectId: 'p', type: 'MANUAL', duration: 5700, authorizationId: 'legado' }),
+      write('timeEntries/nulo', { status: 'STOPPED', userId: 'u', clientId: null, projectId: 'p' }),
+      write('projects/p', { clientId: 'c' }),
       write('obligations/o', { status: 'PENDING', clientId: 'c', assignedUserId: 'u' }),
+      write('obligations/legado', { status: 'PENDING', assignedUserId: 'u' }),
     ])
   })
   const store = uid => env.authenticatedContext(uid).firestore()
@@ -28,6 +32,14 @@ try {
     date: '2026-11-01', activity: 'Nómina', purpose: 'Documentar el pago de la quincena.' }
   await assertSucceeds(updateDoc(time, { reportDetail }))
   await assertSucceeds(updateDoc(doc(admin, 'obligations/o'), { reportDetail }))
+  const legacy = doc(supervisor, 'timeEntries/legado')
+  const before = (await getDoc(legacy)).data()
+  await assertSucceeds(updateDoc(legacy, { reportDetail }))
+  assert.deepEqual((await getDoc(legacy)).data(), { ...before, reportDetail })
+  await assertSucceeds(updateDoc(doc(supervisor, 'timeEntries/nulo'), { reportDetail }))
+  await assertSucceeds(updateDoc(doc(supervisor, 'obligations/legado'), { reportDetail }))
+  await assertFails(updateDoc(legacy, { reportDetail: { ...reportDetail, userId: 's' } }))
+  await assertFails(updateDoc(legacy, { reportDetail, authorizationId: 'otra' }))
   assert.equal((await getDoc(time)).data().duration, 3600)
   await assertFails(updateDoc(time, { reportDetail, duration: 7200 }))
   await assertFails(updateDoc(time, { reportDetail: { ...reportDetail, purpose: '   ' } }))

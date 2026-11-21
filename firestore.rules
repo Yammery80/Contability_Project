@@ -259,11 +259,13 @@ service cloud.firestore {
       return value is string && value.size() <= limit && value.matches('(?s).*[^[:space:]].*');
     }
 
-    function validReportDetail(detail, clientId, userId) {
+    function validReportDetail(detail, source, userId) {
+      // En registros anteriores, el cliente puede venir del proyecto o elegirse en Reportes.
+      let clientId = source.get('clientId', null);
       return detail is map && detail.keys().hasOnly([
           'clientId', 'clientName', 'userId', 'responsibleName', 'activity', 'purpose', 'date'
         ])
-        && reportText(detail.clientId, 1500) && (clientId == '' || detail.clientId == clientId)
+        && reportText(detail.clientId, 1500) && (clientId == null || clientId == '' || detail.clientId == clientId)
         && detail.userId == userId && reportText(detail.responsibleName, 300)
         && reportText(detail.clientName, 300) && reportText(detail.activity, 1000) && reportText(detail.purpose, 1000)
         && detail.date is string && detail.date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
@@ -329,7 +331,7 @@ service cloud.firestore {
       // Reportes puede documentar un registro finalizado sin alterar sus horas ni su autorización.
       allow update: if reviewer() && resource.data.status == 'STOPPED'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportDetail'])
-        && validReportDetail(request.resource.data.reportDetail, resource.data.clientId, resource.data.userId);
+        && validReportDetail(request.resource.data.reportDetail, resource.data, resource.data.userId);
       allow read: if reviewer() || (isSignedIn() && isActive() && resource.data.userId == request.auth.uid);
       allow create: if (isSignedIn() && isActive() && request.resource.data.userId == request.auth.uid
           && request.resource.data.type == 'TIMER' && request.resource.data.status == 'RUNNING'
@@ -396,11 +398,11 @@ service cloud.firestore {
       ]);
 
       allow create: if reviewer() && (!('reportDetail' in request.resource.data)
-        || validReportDetail(request.resource.data.reportDetail, request.resource.data.clientId, request.resource.data.assignedUserId));
+        || validReportDetail(request.resource.data.reportDetail, request.resource.data, request.resource.data.assignedUserId));
       allow delete: if reviewer();
 
       allow update: if (reviewer() && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['reportDetail'])
-        || validReportDetail(request.resource.data.reportDetail, request.resource.data.clientId, request.resource.data.assignedUserId)))
+        || validReportDetail(request.resource.data.reportDetail, request.resource.data, request.resource.data.assignedUserId)))
       || (
         hasAnyRole(['OPERATOR'])
         && resource.data.assignedUserId == request.auth.uid
