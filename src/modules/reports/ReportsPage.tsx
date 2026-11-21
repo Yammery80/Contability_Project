@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { timeEntriesService } from '../timeTracker/timeTrackerService'
 import { projectsService } from '../projects/projectsService'
 import { tasksService } from '../tasks/tasksService'
@@ -18,6 +18,7 @@ import { currentMonthValue, monthLabel, monthOptions, monthRange } from '../../s
 import { AppUser, Client, ClientRate, UserCost, Obligation, ObligationStatus, Project, Task, TimeEntry } from '../../models'
 import { activitySection, indexById, missingFields, obligationActivity, obligationStatus as OBLIGATION_STATUS, reportedTime, selectActivities, timeActivity } from './activityDetail'
 import ReportActivities from './ReportActivities'
+import ReportPrintout from './ReportPrintout'
 
 type ReportType = 'CLIENT_HOURS' | 'EMPLOYEE_HOURS' | 'OBLIGATIONS' | 'PROFITABILITY'
 
@@ -46,6 +47,7 @@ export default function ReportsPage() {
   const [costs, setCosts] = useState<UserCost[]>([])
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState('')
+  const printLogo = useRef<HTMLImageElement>(null)
 
   const [type, setType] = useState<ReportType>('CLIENT_HOURS')
   const [period, setPeriod] = useState(currentMonthValue())
@@ -93,6 +95,8 @@ export default function ReportsPage() {
   const { undated } = selected
   const records = useMemo(() => selected.dated.map(item => item.record), [selected])
   const obligationRows = selectedDuties.dated.map(({ obligation, record }) => ({ ...obligation, clientId: record.detail.clientId, dueDate: record.detail.date }))
+  const statusCounts = { PENDING: 0, IN_PROGRESS: 0, DONE: 0, OVERDUE: 0 }
+  for (const row of obligationRows) statusCounts[row.status]++
   const { clientNames, userNames } = useMemo(() => {
     const clientNames = new Map(clients.map(c => [c.id, c.name]))
     const userNames = new Map(users.map(u => [u.id, u.name]))
@@ -140,10 +144,10 @@ export default function ReportsPage() {
   const loading = required.some(key => !sources[key])
   const incomplete = records.filter(row => missingFields(row.detail).length > 0).length
   const blocked = loadFailed || loading || incomplete > 0 || undated.length > 0 || !records.length || (isProfit && !canProfit)
-  const detail = activitySection(isObligations ? 'obligations' : 'timeEntries', records)
 
   // HU-47: arma el reporte con los mismos filtros que se ven en pantalla.
-  const buildReportData = (): ReportData => {
+  const buildSummary = (print = false): ReportData => {
+    const hours = (seconds: number) => print ? formatClock(seconds) : round2(seconds / 3600)
     const filters: [string, string][] = [
       ['Periodo', monthLabel(period)],
       ['Cliente', clientId ? clientName(clientId) : 'Todos'],
@@ -155,10 +159,15 @@ export default function ReportsPage() {
       filters.push(['Estado de obligación', obligationStatusFilter ? OBLIGATION_STATUS[obligationStatusFilter] : 'Todos'])
       return {
         ...base, filters,
-        sections: [{
+        sections: [...(print ? [{
+          title: 'Estado de las obligaciones',
+          headers: ['Pendientes', 'En progreso', 'Cumplidas', 'Vencidas', 'Total'],
+          rows: [[statusCounts.PENDING, statusCounts.IN_PROGRESS, statusCounts.DONE, statusCounts.OVERDUE, obligationRows.length]],
+        }] : []), {
+          title: print ? 'Obligaciones del periodo' : undefined,
           headers: ['Obligación', 'Cliente', 'Responsable', 'Fecha límite', 'Estado'],
           rows: obligationRows.map((o) => [o.name, clientName(o.clientId), userName(o.assignedUserId), o.dueDate, OBLIGATION_STATUS[o.status]]),
-        }, detail],
+        }],
       }
     }
 
@@ -174,20 +183,19 @@ export default function ReportsPage() {
             numFmts: [undefined, FMT_HOURS, FMT_MONEY, FMT_MONEY, FMT_MONEY, FMT_PCT],
             rows: [
               ...cl.map((c): Cell[] => [
-                clientName(c.clientId), round2(c.seconds / 3600), round2(c.revenue), round2(c.cost), round2(c.profit),
+                clientName(c.clientId), hours(c.seconds), round2(c.revenue), round2(c.cost), round2(c.profit),
                 c.marginPct === null ? null : round2(c.marginPct),
                 [c.unpricedSeconds > 0 ? `Sin tarifa en ${round2(c.unpricedSeconds / 3600)} h` : '', c.uncostedSeconds > 0 ? `Sin costo por hora en ${round2(c.uncostedSeconds / 3600)} h` : ''].filter(Boolean).join('; '),
               ]),
-              ['Total', round2(totals.seconds / 3600), round2(totals.revenue), round2(totals.cost), round2(totals.profit), totals.marginPct === null ? null : round2(totals.marginPct), ''],
+              ['Total', hours(totals.seconds), round2(totals.revenue), round2(totals.cost), round2(totals.profit), totals.marginPct === null ? null : round2(totals.marginPct), ''],
             ],
           },
           {
             title: 'Costo operativo por colaborador',
             headers: ['Colaborador', 'Horas', 'Costo por hora (MXN)', 'Costo operativo (MXN)'],
             numFmts: [undefined, FMT_HOURS, FMT_MONEY, FMT_MONEY],
-            rows: employees.map((e): Cell[] => [userName(e.userId), round2(e.seconds / 3600), e.hourlyCost, round2(e.operatingCost)]),
+            rows: employees.map((e): Cell[] => [userName(e.userId), hours(e.seconds), e.hourlyCost, round2(e.operatingCost)]),
           },
-          detail,
         ],
       }
     }
@@ -200,10 +208,10 @@ export default function ReportsPage() {
         headers: [type === 'CLIENT_HOURS' ? 'Cliente' : 'Empleado', 'Horas', ...(withCharge ? ['Cobro estimado (MXN)'] : [])],
         numFmts: [undefined, FMT_HOURS, FMT_MONEY],
         rows: [
-          ...rows.map((r): Cell[] => [r.name, round2(r.seconds / 3600), ...(withCharge ? [round2(r.charge)] : [])]),
-          ['Total', round2(totalSeconds / 3600), ...(withCharge ? [round2(totalCharge)] : [])],
+          ...rows.map((r): Cell[] => [r.name, hours(r.seconds), ...(withCharge ? [round2(r.charge)] : [])]),
+          ['Total', hours(totalSeconds), ...(withCharge ? [round2(totalCharge)] : [])],
         ],
-      }, detail],
+      }],
     }
   }
 
@@ -212,7 +220,9 @@ export default function ReportsPage() {
     setExportError('')
     setExporting(true)
     try {
-      const data = buildReportData()
+      const summary = buildSummary()
+      const detail = activitySection(isObligations ? 'obligations' : 'timeEntries', records)
+      const data = { ...summary, sections: [...summary.sections, detail] }
       if (format === 'csv') downloadCsv(data)
       else await downloadXlsx(data)
     } catch (err) {
@@ -223,8 +233,20 @@ export default function ReportsPage() {
     }
   }
 
+  const handlePrint = async () => {
+    if (blocked || !printLogo.current) return
+    setExportError('')
+    try {
+      await printLogo.current.decode()
+      window.print()
+    } catch {
+      setExportError('No se pudo cargar el logotipo para imprimir. Vuelve a intentarlo.')
+    }
+  }
+
   return (
     <div className="module-page">
+      <ReportPrintout report={blocked ? null : buildSummary(true)} records={records} issuer={profile?.name} logoRef={printLogo} />
       <h1>Reportes</h1>
       <p className="page-subtitle">Configura el reporte y expórtalo a PDF, CSV o Excel</p>
 
@@ -282,7 +304,7 @@ export default function ReportsPage() {
               Incluir cobro estimado
             </label>
           )}
-          <button className="btn" style={{ width: '100%' }} disabled={blocked} onClick={() => { if (!blocked) window.print() }}>Generar PDF</button>
+          <button className="btn" style={{ width: '100%' }} disabled={blocked} onClick={handlePrint}>Generar PDF</button>
           <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
             <button className="btn btn-ghost" style={{ flex: 1 }} disabled={blocked || exporting} onClick={() => handleExport('csv')}>Descargar CSV</button>
             <button className="btn btn-ghost" style={{ flex: 1 }} disabled={blocked || exporting} onClick={() => handleExport('xlsx')}>Descargar Excel</button>
@@ -299,9 +321,8 @@ export default function ReportsPage() {
         </div>
 
         <div className="card">
-          <h2>Vista previa <small>PDF</small></h2>
-          <div className="report-preview" data-incomplete={blocked}>
-            {blocked && <p className="report-print-warning">El reporte está pendiente. Revisa los datos en Reportes antes de imprimirlo.</p>}
+          <h2>Resumen y actividades</h2>
+          <div className="report-preview">
             <h3>{TYPE_LABEL[type]}</h3>
             <p className="report-meta">
               {monthLabel(period)} · {clientId ? clientName(clientId) : 'Todos los clientes'} · {employeeId ? userName(employeeId) : 'Todos los empleados'}
@@ -356,18 +377,10 @@ export default function ReportsPage() {
               <>
                 <p className="report-meta">
                   Total: {obligationRows.length}
-                  {' · '}Pendientes: {obligationRows.filter(
-                    (o) => o.status === 'PENDING'
-                  ).length}
-                  {' · '}En progreso: {obligationRows.filter(
-                    (o) => o.status === 'IN_PROGRESS'
-                  ).length}
-                  {' · '}Cumplidas: {obligationRows.filter(
-                    (o) => o.status === 'DONE'
-                  ).length}
-                  {' · '}Vencidas: {obligationRows.filter(
-                    (o) => o.status === 'OVERDUE'
-                  ).length}
+                  {' · '}Pendientes: {statusCounts.PENDING}
+                  {' · '}En progreso: {statusCounts.IN_PROGRESS}
+                  {' · '}Cumplidas: {statusCounts.DONE}
+                  {' · '}Vencidas: {statusCounts.OVERDUE}
                 </p>
                 <table className="report-table">
                 <thead><tr><th>Obligación</th><th>Cliente</th><th>Responsable</th><th>Fecha límite</th><th>Estado</th></tr></thead>

@@ -5,9 +5,3 @@
 .report-detail-form fieldset { min-width: 0; display: grid; gap: .65rem; border: 1px solid var(--border); }
 .report-detail-form label { display: grid; gap: .2rem; }
 .report-detail-form textarea { min-height: 3.4rem; }
-.report-print-warning { display: none; }
-@media print {
-  .report-activity { break-inside: avoid; }
-  .report-print-warning { display: block; }
-  .report-preview[data-incomplete="true"] > :not(.report-print-warning) { display: none; }
-}
