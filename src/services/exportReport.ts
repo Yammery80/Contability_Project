@@ -100,12 +100,22 @@ export async function downloadXlsx(report: ReportData) {
       row.forEach((c, i) => {
         const fmt = section.numFmts?.[i]
         if (typeof c === 'number' && fmt) r.getCell(i + 1).numFmt = fmt
+        if (typeof c === 'string' && (c.length > 20 || c.includes('\n'))) {
+          r.getCell(i + 1).alignment = { wrapText: true, vertical: 'top' }
+        }
       })
     })
   }
 
   const widest = Math.max(0, ...report.sections.map((s) => s.headers.length))
-  for (let i = 1; i <= widest; i++) ws.getColumn(i).width = i === 1 ? 38 : 20
+  for (let i = 1; i <= widest; i++) {
+    const column = ws.getColumn(i)
+    let width = i === 1 ? 38 : 20
+    column.eachCell(cell => {
+      if (typeof cell.value === 'string') width = Math.max(width, Math.min(48, cell.value.length + 2))
+    })
+    column.width = width
+  }
 
   const buffer = await wb.xlsx.writeBuffer()
   triggerDownload(

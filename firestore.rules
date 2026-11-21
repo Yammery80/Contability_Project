@@ -255,6 +255,20 @@ service cloud.firestore {
       return hasAnyRole(['SUPERVISOR','ADMIN','SUPERUSER']);
     }
 
+    function reportText(value, limit) {
+      return value is string && value.size() <= limit && value.matches('(?s).*[^[:space:]].*');
+    }
+
+    function validReportDetail(detail, clientId, userId) {
+      return detail is map && detail.keys().hasOnly([
+          'clientId', 'clientName', 'userId', 'responsibleName', 'activity', 'purpose', 'date'
+        ])
+        && reportText(detail.clientId, 1500) && (clientId == '' || detail.clientId == clientId)
+        && detail.userId == userId && reportText(detail.responsibleName, 300)
+        && reportText(detail.clientName, 300) && reportText(detail.activity, 1000) && reportText(detail.purpose, 1000)
+        && detail.date is string && detail.date.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
+    }
+
     function validManual(e) {
       return e.keys().hasAll(['userId','clientId','projectId','taskId','description','type','status','startTime','endTime','duration'])
         && e.keys().size() == 10
@@ -312,11 +326,16 @@ service cloud.firestore {
     }
 
     match /timeEntries/{entryId} {
+      // Reportes puede documentar un registro finalizado sin alterar sus horas ni su autorización.
+      allow update: if reviewer() && resource.data.status == 'STOPPED'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportDetail'])
+        && validReportDetail(request.resource.data.reportDetail, resource.data.clientId, resource.data.userId);
       allow read: if reviewer() || (isSignedIn() && isActive() && resource.data.userId == request.auth.uid);
       allow create: if (isSignedIn() && isActive() && request.resource.data.userId == request.auth.uid
           && request.resource.data.type == 'TIMER' && request.resource.data.status == 'RUNNING'
           && nearNow(request.resource.data.startTime) && request.resource.data.endTime == null
-          && request.resource.data.duration == 0 && !('authorizationId' in request.resource.data))
+          && request.resource.data.duration == 0 && !('authorizationId' in request.resource.data)
+          && !('reportDetail' in request.resource.data))
         || (reviewer() && matchesApproval(entryId, request.resource.data));
       allow update: if isSignedIn() && isActive() && resource.data.userId == request.auth.uid
         && resource.data.type == 'TIMER' && timerTransition(resource.data, request.resource.data);
@@ -376,17 +395,12 @@ service cloud.firestore {
         'SUPERUSER'
       ]);
 
-      allow create, delete: if hasAnyRole([
-        'SUPERVISOR',
-        'ADMIN',
-        'SUPERUSER'
-      ]);
+      allow create: if reviewer() && (!('reportDetail' in request.resource.data)
+        || validReportDetail(request.resource.data.reportDetail, request.resource.data.clientId, request.resource.data.assignedUserId));
+      allow delete: if reviewer();
 
-      allow update: if hasAnyRole([
-        'SUPERVISOR',
-        'ADMIN',
-        'SUPERUSER'
-      ])
+      allow update: if (reviewer() && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['reportDetail'])
+        || validReportDetail(request.resource.data.reportDetail, request.resource.data.clientId, request.resource.data.assignedUserId)))
       || (
         hasAnyRole(['OPERATOR'])
         && resource.data.assignedUserId == request.auth.uid

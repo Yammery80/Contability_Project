@@ -57,12 +57,13 @@ export function createFirestoreService<T extends { id: string }>(collectionName:
     // reflejar cambios sin recargar la página.
     subscribe(
       callback: (items: T[]) => void,
-      constraints: QueryConstraint[] = []
+      constraints: QueryConstraint[] = [],
+      onError?: (error: Error) => void
     ): () => void {
       const q = query(colRef, ...constraints)
       return onSnapshot(q, (snap) => {
         callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T))
-      })
+      }, onError)
     },
   }
 }
