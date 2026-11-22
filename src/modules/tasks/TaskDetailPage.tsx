@@ -85,7 +85,7 @@ export default function TaskDetailPage() {
       await save(patch)
       if (status === 'COMPLETED' && project?.supervisorId && project.supervisorId !== profile.id) {
         try {
-          await notifyUser(project.supervisorId, `La tarea "${task.title}" fue marcada como completada`, `${client?.name ?? ''} · por ${profile.name}`)
+          await notifyUser(project.supervisorId, `La tarea "${task.title}" fue marcada como completada`, `${client?.name ?? ''} · por ${profile.name}`, 'INFO', { kind: 'TASK_COMPLETED', sourceId: task.id, actorId: profile.id })
         } catch (notifyError) {
           console.error('No se pudo enviar la notificación de finalización:', notifyError)
         }
@@ -103,7 +103,7 @@ export default function TaskDetailPage() {
     })
     if (userId && userId !== profile.id) {
       try {
-        await notifyUser(userId, `Se te asignó la tarea "${task.title}"`, `Cliente: ${client?.name ?? '—'}`)
+        await notifyUser(userId, `Se te asignó la tarea "${task.title}"`, `Cliente: ${client?.name ?? '—'}`, 'INFO', { kind: 'TASK_ASSIGNED', sourceId: task.id, actorId: profile.id })
       } catch (notifyError) {
         console.error('No se pudo enviar la notificación de asignación:', notifyError)
       }
@@ -139,7 +139,7 @@ export default function TaskDetailPage() {
     setCommentText('')
     if (task.assignedUserId && task.assignedUserId !== profile.id) {
       try {
-        await notifyUser(task.assignedUserId, `${profile.name} comentó en "${task.title}"`, text.slice(0, 120))
+        await notifyUser(task.assignedUserId, `${profile.name} comentó en "${task.title}"`, text.slice(0, 120), 'INFO', { kind: 'TASK_COMMENT', sourceId: task.id, actorId: profile.id })
       } catch (notifyError) {
         console.error('No se pudo enviar la notificación del comentario:', notifyError)
       }

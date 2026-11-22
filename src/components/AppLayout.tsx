@@ -1,8 +1,10 @@
+
 import React, { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { where, getFirestore, doc, getDoc} from 'firebase/firestore'
+import { where, getFirestore, doc, getDoc } from 'firebase/firestore'
 import { useAuth, homeRouteForRole } from '../hooks/useAuth'
 import { notificationsService } from '../modules/notifications/notificationsService'
+import { checkMyDeadlines } from '../modules/notifications/deadlineAlerts'
 import { initials } from '../services/period'
 import { can } from '../services/permissions'
 import QuickTimer from '../modules/timeTracker/QuickTimer'
@@ -12,111 +14,217 @@ import PanelUser from '../modules/panel_user/PanelUser'
 interface NavItem {
   label: string
   to: string
-  section?: string // encabezado de grupo (p. ej. "Administración")
+  section?: string
 }
 
-const nav = (base: string, extra: NavItem[] = [], withClients = true): NavItem[] => [
+const nav = (
+  base: string,
+  extra: NavItem[] = [],
+  withClients = true
+): NavItem[] => [
   { label: 'Dashboard', to: base },
-  ...(withClients ? [{ label: 'Dashboard del equipo', to: `${base}/team` }] : []),
+  ...(withClients
+    ? [{ label: 'Dashboard del equipo', to: `${base}/team` }]
+    : []),
   { label: 'Tareas', to: `${base}/tasks` },
   { label: 'Tablero Kanban', to: `${base}/kanban` },
   { label: 'Registro de tiempos', to: `${base}/time-tracker` },
   { label: 'Historial de actividades', to: `${base}/activities` },
   { label: 'Sugerencias de horas', to: `${base}/suggestions` },
   { label: 'Mi captura', to: `${base}/capture` },
-  ...(withClients ? [{ label: 'Clientes', to: `${base}/clients` }, { label: 'Proyectos', to: `${base}/projects` }] : []),
+  ...(withClients
+    ? [
+        { label: 'Clientes', to: `${base}/clients` },
+        { label: 'Proyectos', to: `${base}/projects` }
+      ]
+    : []),
   { label: 'Obligaciones fiscales', to: `${base}/obligations` },
   { label: 'Calendario fiscal', to: `${base}/calendar` },
-  ...(withClients ? [{ label: 'Reportes', to: `${base}/reports` }] : []),
+  ...(withClients
+    ? [{ label: 'Reportes', to: `${base}/reports` }]
+    : []),
   { label: 'Notificaciones', to: `${base}/notifications` },
   ...extra,
   { label: 'Mi perfil', to: `${base}/panel-user` }
 ]
 
-// Superusuario y Administrador comparten menú (ambos con alcance total).
+// Superusuario y Administrador comparten menú.
 const ADMIN_NAV = nav('/admin', [
-  { label: 'Usuarios', to: '/admin/users', section: 'Administración' },
-  { label: 'Aplicaciones', to: '/admin/tracked-apps', section: 'Administración' },
-  { label: 'Tarifas por cliente', to: '/admin/rates', section: 'Administración' },
-  { label: 'Costo por hora', to: '/admin/costs', section: 'Administración' },
+  {
+    label: 'Usuarios',
+    to: '/admin/users',
+    section: 'Administración'
+  },
+  {
+    label: 'Aplicaciones',
+    to: '/admin/tracked-apps',
+    section: 'Administración'
+  },
+  {
+    label: 'Tarifas por cliente',
+    to: '/admin/rates',
+    section: 'Administración'
+  },
+  {
+    label: 'Costo por hora',
+    to: '/admin/costs',
+    section: 'Administración'
+  }
 ])
 
 const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   SUPERUSER: ADMIN_NAV,
   ADMIN: ADMIN_NAV,
   SUPERVISOR: nav('/supervisor'),
-  OPERATOR: nav('/operator', [], false),
+  OPERATOR: nav('/operator', [], false)
 }
 
 const ROLE_LABEL: Record<Role, string> = {
   SUPERUSER: 'Superusuario',
   ADMIN: 'Administrador',
   SUPERVISOR: 'Supervisor',
-  OPERATOR: 'Operador / Colaborador',
+  OPERATOR: 'Operador / Colaborador'
 }
 
-function hideBrokenLogo(e: React.SyntheticEvent<HTMLImageElement>) {
+function hideBrokenLogo(
+  e: React.SyntheticEvent<HTMLImageElement>
+) {
   e.currentTarget.style.display = 'none'
 }
 
 export default function AppLayout() {
   const { profile, logout } = useAuth()
   const navigate = useNavigate()
+
   const [unread, setUnread] = useState(0)
   const [mustChangePassword, setMustChangePassword] = useState(false)
   const [loadingCheck, setLoadingCheck] = useState(true)
 
-
+  // ===== NOTIFICACIONES EXISTENTES =====
+  // Mantiene la campanita y el contador original.
   useEffect(() => {
     if (!profile) return
+
     return notificationsService.subscribe(
       (items) => setUnread(items.filter((n) => !n.read).length),
       [where('userId', '==', profile.id)]
     )
   }, [profile])
 
-    useEffect(() => {
+  // ===== SEGURIDAD ORIGINAL =====
+  // Conserva el cambio obligatorio de contraseña.
+  useEffect(() => {
     const checkPasswordStatus = async () => {
       if (!profile) return
+
+      setLoadingCheck(true)
+
       try {
         const db = getFirestore()
         const userDocRef = doc(db, 'users', profile.id)
         const userSnap = await getDoc(userDocRef)
-        
+
         if (userSnap.exists()) {
-          setMustChangePassword(userSnap.data().mustChangePassword === true)
+          setMustChangePassword(
+            userSnap.data().mustChangePassword === true
+          )
         }
       } catch (err) {
-        console.error('Error al verificar el estado de la contraseña:', err)
+        console.error(
+          'Error al verificar el estado de la contraseña:',
+          err
+        )
       } finally {
         setLoadingCheck(false)
       }
     }
 
-    checkPasswordStatus()
+    void checkPasswordStatus()
   }, [profile])
 
+  // ===== NOTIFICACIONES GRATUITAS NUEVAS =====
+  // Revisa vencimientos al entrar y al regresar a la app.
+  useEffect(() => {
+    if (
+      !profile?.active ||
+      loadingCheck ||
+      mustChangePassword
+    ) {
+      return
+    }
+
+    const check = () => {
+      void checkMyDeadlines(profile.id).catch((err) => {
+        console.warn(
+          'No se pudieron revisar los vencimientos:',
+          err
+        )
+      })
+    }
+
+    check()
+
+    window.addEventListener('focus', check)
+
+    return () => {
+      window.removeEventListener('focus', check)
+    }
+  }, [
+    profile?.id,
+    profile?.active,
+    loadingCheck,
+    mustChangePassword
+  ])
 
   if (!profile) return null
 
   if (loadingCheck) {
-    return <div style={{ textAlign: 'center', marginTop: '50px' }}>Verificando seguridad de la cuenta...</div>
+    return (
+      <div
+        style={{
+          textAlign: 'center',
+          marginTop: '50px'
+        }}
+      >
+        Verificando seguridad de la cuenta...
+      </div>
+    )
   }
 
-if (mustChangePassword) {
-  return (
-    
-    <main className="main-content" style={{ maxWidth: '700px', margin: '40px auto', padding: '20px' }}>
-          <div className="alert alert-error" style={{ marginBottom: '20px', padding: '15px', background: '#fff3cd', color: '#856404', borderRadius: '6px' }}>
-            ⚠️ <strong>Cambio de contraseña obligatorio:</strong> Esta es una cuenta nueva. Por seguridad, debes cambiar tu contraseña temporal para poder utilizar el sistema[cite: 1].
-          </div>
-          <PanelUser 
-            isForced={true} 
-            onSuccessChange={() => setMustChangePassword(false)} 
-          />
-        </main>
-  )
-}
+  // ===== CAMBIO OBLIGATORIO DE CONTRASEÑA =====
+  if (mustChangePassword) {
+    return (
+      <main
+        className="main-content"
+        style={{
+          maxWidth: '700px',
+          margin: '40px auto',
+          padding: '20px'
+        }}
+      >
+        <div
+          className="alert alert-error"
+          style={{
+            marginBottom: '20px',
+            padding: '15px',
+            background: '#fff3cd',
+            color: '#856404',
+            borderRadius: '6px'
+          }}
+        >
+          ⚠️ <strong>Cambio de contraseña obligatorio:</strong>{' '}
+          Esta es una cuenta nueva. Por seguridad, debes
+          cambiar tu contraseña temporal para poder utilizar
+          el sistema.
+        </div>
+
+        <PanelUser
+          isForced={true}
+          onSuccessChange={() => setMustChangePassword(false)}
+        />
+      </main>
+    )
+  }
 
   const base = homeRouteForRole(profile.role)
   const items = NAV_BY_ROLE[profile.role]
@@ -131,18 +239,33 @@ if (mustChangePassword) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          {/* Coloca tu logo en /public/logo.png (si no existe, solo se ve el texto) */}
-          <img src="/logo.png" alt="Logo" className="sidebar-logo" onError={hideBrokenLogo} />
-          <span className="sidebar-brand-text">Proyecto Contable</span>
+          <img
+            src="/logo.png"
+            alt="Logo"
+            className="sidebar-logo"
+            onError={hideBrokenLogo}
+          />
+          <span className="sidebar-brand-text">
+            Proyecto Contable
+          </span>
         </div>
+
         <nav>
           {items.map((item, i) => (
             <React.Fragment key={item.to}>
-              {item.section && item.section !== items[i - 1]?.section && <div className="nav-section">{item.section}</div>}
+              {item.section &&
+                item.section !== items[i - 1]?.section && (
+                  <div className="nav-section">
+                    {item.section}
+                  </div>
+                )}
+
               <NavLink
                 to={item.to}
                 end={item.to === base}
-                className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')}
+                className={({ isActive }) =>
+                  'nav-item' + (isActive ? ' active' : '')
+                }
               >
                 {item.label}
               </NavLink>
@@ -150,24 +273,71 @@ if (mustChangePassword) {
           ))}
         </nav>
       </aside>
+
       <div className="main-area">
         <header className="topbar">
-          <span className="role-badge">{ROLE_LABEL[profile.role]}</span>
+          <span className="role-badge">
+            {ROLE_LABEL[profile.role]}
+          </span>
+
           <span className="topbar-spacer" />
+
           <QuickTimer />
+
           {canCreateTask && (
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate(`${base}/tasks?new=1`)}>+ Nueva tarea</button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => navigate(`${base}/tasks?new=1`)}
+            >
+              + Nueva tarea
+            </button>
           )}
-          <button className="bell-btn" onClick={() => navigate(`${base}/notifications`)} aria-label="Notificaciones">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
+
+          <button
+            className="bell-btn"
+            onClick={() => navigate(`${base}/notifications`)}
+            aria-label="Notificaciones"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.7 21a2 2 0 0 1-3.4 0" />
             </svg>
-            {unread > 0 && <span className="bell-badge">{unread > 9 ? '9+' : unread}</span>}
+
+            {unread > 0 && (
+              <span className="bell-badge">
+                {unread > 9 ? '9+' : unread}
+              </span>
+            )}
           </button>
-          <div className="avatar" title={profile.name}>{initials(profile.name)}</div>
-          <span className="user-name">{profile.name}</span>
-          <button className="logout-btn" onClick={handleLogout}>Salir</button>
+
+          <div
+            className="avatar"
+            title={profile.name}
+          >
+            {initials(profile.name)}
+          </div>
+
+          <span className="user-name">
+            {profile.name}
+          </span>
+
+          <button
+            className="logout-btn"
+            onClick={handleLogout}
+          >
+            Salir
+          </button>
         </header>
+
         <main className="content">
           <Outlet />
         </main>

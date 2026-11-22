@@ -1,3 +1,4 @@
+import { notifyUser } from '../../services/notify'
 import React, { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
@@ -224,7 +225,10 @@ export default function TasksPage({
     }
 
     try {
-      await tasksService.create(data)
+      const createdTaskId = await tasksService.create(data)
+      if (data.assignedUserId && data.assignedUserId !== profile.id) {
+        await notifyUser(data.assignedUserId, `Se te asignó la tarea ${data.title}`, 'Nueva tarea asignada', 'INFO', { kind: 'TASK_ASSIGNED', sourceId: createdTaskId, actorId: profile.id })
+      }
     } catch (error) {
       console.error('Error al crear tarea:', error)
       setFeedback('No se pudo guardar la tarea. Verifica tu conexión y permisos.')
