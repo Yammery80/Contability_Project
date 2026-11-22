@@ -152,18 +152,42 @@
    }[]
  }
 
- // ===== Notificación =====
- export type NotificationLevel = 'INFO' | 'WARNING' | 'URGENT'
 
- export interface AppNotification {
-   id: string
-   userId: string
-   title: string
-   message: string
-   level: NotificationLevel
-   read: boolean
-   createdAt: number
- }
+
+ // ===== Notificación =====
+export type NotificationLevel = 'INFO' | 'WARNING' | 'URGENT'
+
+// Tipos de notificaciones
+export type NotificationKind =
+  | 'TASK_ASSIGNED'
+  | 'TASK_COMMENT'
+  | 'TASK_COMPLETED'
+  | 'TASK_DEADLINE'
+  | 'OBLIGATION_DEADLINE'
+  | 'TASK_DUE_SOON'
+  | 'TASK_OVERDUE'
+  | 'OBLIGATION_DUE_SOON'
+  | 'OBLIGATION_OVERDUE'
+
+export interface AppNotification {
+  id: string
+  userId: string
+  title: string
+  message: string
+  level: NotificationLevel
+  read: boolean
+  createdAt: number
+
+  // Identifica el tipo de notificación
+  kind?: NotificationKind
+
+  // ID de la tarea u obligación relacionada
+  sourceId?: string
+
+  // ID del usuario que generó la notificación
+  actorId?: string
+}
+
 
  // ===== Actividad capturada (Lea Memory) =====
  // Una "actividad" es el tiempo continuo en un mismo dominio + título de página.

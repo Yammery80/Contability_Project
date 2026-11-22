@@ -420,8 +420,72 @@ service cloud.firestore {
         && isActive()
         && resource.data.userId == request.auth.uid;
 
-      // Solo Cloud Functions / Admin SDK las crea.
-      allow create: if false;
+      // Notificaciones internas sin Cloud Functions. El actor queda autenticado
+      // y el recurso relacionado debe justificar el destinatario.
+      function validPayload() {
+        return request.resource.data.keys().hasOnly([
+          'userId', 'title', 'message', 'level', 'read', 'createdAt',
+          'kind', 'sourceId', 'actorId'
+        ])
+        && request.resource.data.keys().hasAll([
+          'userId', 'title', 'message', 'level', 'read', 'createdAt',
+          'kind', 'sourceId', 'actorId'
+        ])
+        && request.resource.data.userId is string
+        && request.resource.data.userId.size() > 0
+        && request.resource.data.title is string
+        && request.resource.data.title.size() <= 180
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 500
+        && request.resource.data.sourceId is string
+        && request.resource.data.sourceId.size() > 0
+        && request.resource.data.level in ['INFO', 'WARNING', 'URGENT']
+        && request.resource.data.read == false
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt <= request.time.toMillis() + 60000
+        && request.resource.data.createdAt >= request.time.toMillis() - 300000;
+      }
+
+      function taskNotificationAllowed() {
+        let task = get(/databases/$(database)/documents/tasks/$(request.resource.data.sourceId)).data;
+        return exists(/databases/$(database)/documents/tasks/$(request.resource.data.sourceId))
+          && (
+            (request.resource.data.kind == 'TASK_ASSIGNED'
+              && hasAnyRole(['SUPERVISOR', 'ADMIN', 'SUPERUSER'])
+              && task.assignedUserId == request.resource.data.userId
+              && task.assignedBy == request.auth.uid)
+            || (request.resource.data.kind == 'TASK_COMMENT'
+              && task.assignedUserId == request.resource.data.userId
+              && task.comments is list
+              && task.comments.size() > 0
+              && task.comments[task.comments.size() - 1].userId == request.auth.uid)
+            || (request.resource.data.kind == 'TASK_COMPLETED'
+              && task.status == 'COMPLETED'
+              && task.completedBy == request.auth.uid
+              && get(/databases/$(database)/documents/projects/$(task.projectId)).data.supervisorId == request.resource.data.userId)
+          );
+      }
+
+      function deadlineAllowed() {
+        return request.resource.data.userId == request.auth.uid
+          && (
+            (request.resource.data.kind == 'TASK_DEADLINE'
+              && exists(/databases/$(database)/documents/tasks/$(request.resource.data.sourceId))
+              && get(/databases/$(database)/documents/tasks/$(request.resource.data.sourceId)).data.assignedUserId == request.auth.uid
+              && get(/databases/$(database)/documents/tasks/$(request.resource.data.sourceId)).data.status != 'COMPLETED')
+            || (request.resource.data.kind == 'OBLIGATION_DEADLINE'
+              && exists(/databases/$(database)/documents/obligations/$(request.resource.data.sourceId))
+              && get(/databases/$(database)/documents/obligations/$(request.resource.data.sourceId)).data.assignedUserId == request.auth.uid
+              && get(/databases/$(database)/documents/obligations/$(request.resource.data.sourceId)).data.status != 'DONE')
+          );
+      }
+
+      allow create: if isSignedIn() && isActive() && validPayload()
+        && (
+          (request.resource.data.kind in ['TASK_ASSIGNED', 'TASK_COMMENT', 'TASK_COMPLETED'] && taskNotificationAllowed())
+          || (request.resource.data.kind in ['TASK_DEADLINE', 'OBLIGATION_DEADLINE'] && deadlineAllowed())
+        );
 
       // Solo se permite marcarlas como leidas.
       allow update: if isSignedIn()
