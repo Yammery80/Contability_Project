@@ -26,6 +26,7 @@
  export interface Client {
    hasFiscalFile?: boolean
    taxRegime?: string
+   businessActivity?: string
    responsibleUserId?: string
    updatedAt?: number
    id: string
@@ -109,7 +110,19 @@
  // LEA_MEMORY: registro creado al aprobar una sugerencia de horas (HU-65).
  export type TimeEntryType = 'TIMER' | 'MANUAL' | 'LEA_MEMORY'
 
+ // Datos confirmados al preparar un reporte. Los registros anteriores pueden carecer de ellos.
+ export interface ReportDetail {
+   clientId: string
+   clientName: string
+   userId: string
+   responsibleName: string
+   activity: string
+   purpose: string
+   date: string // día local YYYY-MM-DD
+ }
+
  export interface TimeEntry {
+   reportDetail?: ReportDetail
    id: string
    userId: string
    clientId: string
@@ -128,6 +141,7 @@
  export type ObligationStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'OVERDUE'
 
  export interface Obligation {
+   reportDetail?: ReportDetail
    id: string
    clientId: string
    name: string

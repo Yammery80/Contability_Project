@@ -1,0 +1,7 @@
+.report-activity { border-top: 1px solid var(--border); padding: .75rem 0; }
+.report-activity dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: .5rem 1rem; margin: 0 0 .65rem; }
+.report-activity dt { color: var(--muted); font-size: .8rem; }
+.report-activity dd { margin: .15rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.report-detail-form fieldset { min-width: 0; display: grid; gap: .65rem; border: 1px solid var(--border); }
+.report-detail-form label { display: grid; gap: .2rem; }
+.report-detail-form textarea { min-height: 3.4rem; }

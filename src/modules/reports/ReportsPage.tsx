@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { timeEntriesService } from '../timeTracker/timeTrackerService'
 import { projectsService } from '../projects/projectsService'
 import { tasksService } from '../tasks/tasksService'
@@ -11,10 +11,14 @@ import { buildProfitability } from './profitability'
 import { useAuth } from '../../hooks/useAuth'
 import { can } from '../../services/permissions'
 import { Cell, FMT_HOURS, FMT_MONEY, FMT_PCT, ReportData, downloadCsv, downloadXlsx } from '../../services/exportReport'
-import { useUsers } from '../users/useUsers'
+import { usersService } from '../users/usersService'
+import type { createFirestoreService } from '../../services/firestoreService'
 import { estimatedCharge, unpricedSeconds, formatClock, formatMoney } from '../../services/billing'
-import { currentMonthValue, entryDate, inRange, monthLabel, monthOptions, monthRange } from '../../services/period'
-import { Client, ClientRate, UserCost, Obligation, ObligationStatus, Project, Task, TimeEntry } from '../../models'
+import { currentMonthValue, monthLabel, monthOptions, monthRange } from '../../services/period'
+import { AppUser, Client, ClientRate, UserCost, Obligation, ObligationStatus, Project, Task, TimeEntry } from '../../models'
+import { activitySection, indexById, missingFields, obligationActivity, obligationStatus as OBLIGATION_STATUS, reportedTime, selectActivities, timeActivity } from './activityDetail'
+import ReportActivities from './ReportActivities'
+import ReportPrintout from './ReportPrintout'
 
 type ReportType = 'CLIENT_HOURS' | 'EMPLOYEE_HOURS' | 'OBLIGATIONS' | 'PROFITABILITY'
 
@@ -24,14 +28,16 @@ const TYPE_LABEL: Record<ReportType, string> = {
   OBLIGATIONS: 'Obligaciones',
   PROFITABILITY: 'Rentabilidad',
 }
-const OBLIGATION_STATUS: Record<ObligationStatus, string> = { PENDING: 'Pendiente', IN_PROGRESS: 'En progreso', DONE: 'Cumplida', OVERDUE: 'Vencida' }
+type Source = 'entries' | 'clients' | 'users' | 'projects' | 'tasks' | 'obligations' | 'rates' | 'costs'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
 export default function ReportsPage() {
   const { profile } = useAuth()
   const canProfit = can(profile?.role, 'profitability.view') // depende del costo por hora: solo Admin/Superusuario
-  const users = useUsers()
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [sources, setSources] = useState<Partial<Record<Source, 'ready' | 'error'>>>({})
+  const [retry, setRetry] = useState(0)
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -41,6 +47,7 @@ export default function ReportsPage() {
   const [costs, setCosts] = useState<UserCost[]>([])
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState('')
+  const printLogo = useRef<HTMLImageElement>(null)
 
   const [type, setType] = useState<ReportType>('CLIENT_HOURS')
   const [period, setPeriod] = useState(currentMonthValue())
@@ -51,33 +58,59 @@ export default function ReportsPage() {
     useState<ObligationStatus | ''>('')
 
   useEffect(() => {
-    const u1 = timeEntriesService.subscribe(setEntries)
-    const u2 = clientsService.subscribe(setClients)
-    const u3 = obligationsService.subscribe(setObligations)
-    const u4 = projectsService.subscribe(setProjects)
-    const u5 = tasksService.subscribe(setTasks)
-    const u6 = clientRatesService.subscribe(setRates)
-    return () => { u1(); u2(); u3(); u4(); u5(); u6() }
-  }, [])
+    setSources({})
+    if (!can(profile?.role, 'reports.view')) return
+    let active = true
+    function callbacks<T>(key: Source, set: (values: T[]) => void) {
+      const mark = (state: 'ready' | 'error') => setSources(old => old[key] === state ? old : { ...old, [key]: state })
+      return [(values: T[]) => { if (active) { set(values); mark('ready') } }, () => { if (active) mark('error') }] as const
+    }
+    function watch<T extends { id: string }>(key: Source, service: ReturnType<typeof createFirestoreService<T>>, set: (values: T[]) => void) {
+      const [next, failed] = callbacks(key, set)
+      return service.subscribe(next, [], failed)
+    }
+    const stops = [watch('entries', timeEntriesService, setEntries), watch('clients', clientsService, setClients),
+      watch('users', usersService, setUsers), watch('obligations', obligationsService, setObligations),
+      watch('projects', projectsService, setProjects), watch('tasks', tasksService, setTasks), watch('rates', clientRatesService, setRates)]
+    if (canProfit) stops.push(userCostsService.subscribe(...callbacks('costs', setCosts)))
+    return () => { active = false; stops.forEach(stop => stop()) }
+  }, [profile?.id, profile?.role, canProfit, retry])
 
-  useEffect(() => {
-    if (!canProfit) return
-    return userCostsService.subscribe(setCosts)
-  }, [canProfit])
-
-  const range = monthRange(period)
-  const clientName = (id: string) => (id ? clients.find((c) => c.id === id)?.name ?? ('Cliente ' + id) : 'Sin cliente')
-  const userName = (id: string) => users.find((u) => u.id === id)?.name ?? (id || 'Sin colaborador')
-
-  const filtered = useMemo(
-    () => entries
-      .filter((e) => e.status === 'STOPPED' && inRange(entryDate(e), range))
-      .filter((e) => !clientId || e.clientId === clientId)
-      .filter((e) => !employeeId || e.userId === employeeId),
-    [entries, period, clientId, employeeId] // eslint-disable-line react-hooks/exhaustive-deps
-  )
+  const directory = useMemo(() => ({ clients: indexById(clients), users: indexById(users),
+    projects: indexById(projects), tasks: indexById(tasks) }), [clients, users, projects, tasks])
+  const times = useMemo(() => entries.filter(e => e.status === 'STOPPED').map(entry => {
+    const record = timeActivity(entry, directory)
+    return { record, entry: reportedTime(entry, record) }
+  }), [entries, directory])
+  const duties = useMemo(() => obligations.map(obligation => ({ obligation, record: obligationActivity(obligation, directory) })),
+    [obligations, directory])
+  const selectedTimes = useMemo(() => selectActivities(times, clientId, employeeId, monthRange(period)),
+    [times, clientId, employeeId, period])
+  const selectedDuties = useMemo(() => selectActivities(
+    duties.filter(({ obligation }) => !obligationStatusFilter || obligation.status === obligationStatusFilter),
+    clientId, employeeId, monthRange(period)), [duties, obligationStatusFilter, clientId, employeeId, period])
+  const filtered = useMemo(() => selectedTimes.dated.map(({ entry }) => entry), [selectedTimes])
+  const isObligations = type === 'OBLIGATIONS'
+  const selected = isObligations ? selectedDuties : selectedTimes
+  const { undated } = selected
+  const records = useMemo(() => selected.dated.map(item => item.record), [selected])
+  const obligationRows = selectedDuties.dated.map(({ obligation, record }) => ({ ...obligation, clientId: record.detail.clientId, dueDate: record.detail.date }))
+  const statusCounts = { PENDING: 0, IN_PROGRESS: 0, DONE: 0, OVERDUE: 0 }
+  for (const row of obligationRows) statusCounts[row.status]++
+  const { clientNames, userNames } = useMemo(() => {
+    const clientNames = new Map(clients.map(c => [c.id, c.name]))
+    const userNames = new Map(users.map(u => [u.id, u.name]))
+    for (const { record: { detail } } of [...times, ...duties]) {
+      if (!clientNames.get(detail.clientId) && detail.clientName) clientNames.set(detail.clientId, detail.clientName)
+      if (!userNames.get(detail.userId) && detail.responsibleName) userNames.set(detail.userId, detail.responsibleName)
+    }
+    return { clientNames, userNames }
+  }, [clients, users, times, duties])
+  const clientName = (id: string) => clientNames.get(id) || 'Sin nombre de cliente'
+  const userName = (id: string) => userNames.get(id) || 'Sin nombre de responsable'
 
   const rows = useMemo(() => {
+    if (type !== 'CLIENT_HOURS' && type !== 'EMPLOYEE_HOURS') return []
     const keyOf = (e: TimeEntry) => (type === 'CLIENT_HOURS' ? e.clientId : e.userId)
     const groups = new Map<string, TimeEntry[]>()
     for (const entry of filtered) {
@@ -91,29 +124,30 @@ export default function ReportsPage() {
         key,
         name: type === 'CLIENT_HOURS' ? clientName(key) : userName(key),
         seconds: list.reduce((s, e) => s + e.duration, 0),
-        charge: estimatedCharge(list, rates),
+        charge: withCharge ? estimatedCharge(list, rates) : 0,
         detail: groupHours(list, [type === 'CLIENT_HOURS' ? 'userId' : 'clientId', 'projectId', 'taskId', 'description']),
       }))
       .sort((a, b) => b.seconds - a.seconds)
-  }, [filtered, type, clients, users, rates]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const obligationRows = obligations
-    .filter((o) => !clientId || o.clientId === clientId)
-    .filter((o) => !employeeId || o.assignedUserId === employeeId)
-    .filter((o) => !obligationStatusFilter || o.status === obligationStatusFilter)
-    .filter((o) => inRange(new Date(o.dueDate + 'T12:00:00').getTime(), range))
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+  }, [filtered, type, clientNames, userNames, rates, withCharge]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxSeconds = Math.max(1, ...rows.map((r) => r.seconds))
   const totalSeconds = rows.reduce((s, r) => s + r.seconds, 0)
   const totalCharge = rows.reduce((s, r) => s + r.charge, 0)
-  const unpriced = unpricedSeconds(filtered, rates)
+  const unpriced = withCharge ? unpricedSeconds(filtered, rates) : 0
   const isProfit = type === 'PROFITABILITY'
   const isHours = type === 'CLIENT_HOURS' || type === 'EMPLOYEE_HOURS'
   const profitability = useMemo(() => (isProfit ? buildProfitability(filtered, rates, costs) : null), [isProfit, filtered, rates, costs])
+  const required: Source[] = isObligations ? ['clients', 'users', 'obligations'] : ['clients', 'users', 'entries', 'tasks', 'projects']
+  if (isProfit || (isHours && withCharge)) required.push('rates')
+  if (isProfit) required.push('costs')
+  const loadFailed = required.some(key => sources[key] === 'error')
+  const loading = required.some(key => !sources[key])
+  const incomplete = records.filter(row => missingFields(row.detail).length > 0).length
+  const blocked = loadFailed || loading || incomplete > 0 || undated.length > 0 || !records.length || (isProfit && !canProfit)
 
   // HU-47: arma el reporte con los mismos filtros que se ven en pantalla.
-  const buildReportData = (): ReportData => {
+  const buildSummary = (print = false): ReportData => {
+    const hours = (seconds: number) => print ? formatClock(seconds) : round2(seconds / 3600)
     const filters: [string, string][] = [
       ['Periodo', monthLabel(period)],
       ['Cliente', clientId ? clientName(clientId) : 'Todos'],
@@ -125,7 +159,12 @@ export default function ReportsPage() {
       filters.push(['Estado de obligación', obligationStatusFilter ? OBLIGATION_STATUS[obligationStatusFilter] : 'Todos'])
       return {
         ...base, filters,
-        sections: [{
+        sections: [...(print ? [{
+          title: 'Estado de las obligaciones',
+          headers: ['Pendientes', 'En progreso', 'Cumplidas', 'Vencidas', 'Total'],
+          rows: [[statusCounts.PENDING, statusCounts.IN_PROGRESS, statusCounts.DONE, statusCounts.OVERDUE, obligationRows.length]],
+        }] : []), {
+          title: print ? 'Obligaciones del periodo' : undefined,
           headers: ['Obligación', 'Cliente', 'Responsable', 'Fecha límite', 'Estado'],
           rows: obligationRows.map((o) => [o.name, clientName(o.clientId), userName(o.assignedUserId), o.dueDate, OBLIGATION_STATUS[o.status]]),
         }],
@@ -144,18 +183,18 @@ export default function ReportsPage() {
             numFmts: [undefined, FMT_HOURS, FMT_MONEY, FMT_MONEY, FMT_MONEY, FMT_PCT],
             rows: [
               ...cl.map((c): Cell[] => [
-                clientName(c.clientId), round2(c.seconds / 3600), round2(c.revenue), round2(c.cost), round2(c.profit),
+                clientName(c.clientId), hours(c.seconds), round2(c.revenue), round2(c.cost), round2(c.profit),
                 c.marginPct === null ? null : round2(c.marginPct),
                 [c.unpricedSeconds > 0 ? `Sin tarifa en ${round2(c.unpricedSeconds / 3600)} h` : '', c.uncostedSeconds > 0 ? `Sin costo por hora en ${round2(c.uncostedSeconds / 3600)} h` : ''].filter(Boolean).join('; '),
               ]),
-              ['Total', round2(totals.seconds / 3600), round2(totals.revenue), round2(totals.cost), round2(totals.profit), totals.marginPct === null ? null : round2(totals.marginPct), ''],
+              ['Total', hours(totals.seconds), round2(totals.revenue), round2(totals.cost), round2(totals.profit), totals.marginPct === null ? null : round2(totals.marginPct), ''],
             ],
           },
           {
             title: 'Costo operativo por colaborador',
             headers: ['Colaborador', 'Horas', 'Costo por hora (MXN)', 'Costo operativo (MXN)'],
             numFmts: [undefined, FMT_HOURS, FMT_MONEY, FMT_MONEY],
-            rows: employees.map((e): Cell[] => [userName(e.userId), round2(e.seconds / 3600), e.hourlyCost, round2(e.operatingCost)]),
+            rows: employees.map((e): Cell[] => [userName(e.userId), hours(e.seconds), e.hourlyCost, round2(e.operatingCost)]),
           },
         ],
       }
@@ -169,18 +208,21 @@ export default function ReportsPage() {
         headers: [type === 'CLIENT_HOURS' ? 'Cliente' : 'Empleado', 'Horas', ...(withCharge ? ['Cobro estimado (MXN)'] : [])],
         numFmts: [undefined, FMT_HOURS, FMT_MONEY],
         rows: [
-          ...rows.map((r): Cell[] => [r.name, round2(r.seconds / 3600), ...(withCharge ? [round2(r.charge)] : [])]),
-          ['Total', round2(totalSeconds / 3600), ...(withCharge ? [round2(totalCharge)] : [])],
+          ...rows.map((r): Cell[] => [r.name, hours(r.seconds), ...(withCharge ? [round2(r.charge)] : [])]),
+          ['Total', hours(totalSeconds), ...(withCharge ? [round2(totalCharge)] : [])],
         ],
       }],
     }
   }
 
   const handleExport = async (format: 'csv' | 'xlsx') => {
+    if (blocked || exporting) return
     setExportError('')
     setExporting(true)
     try {
-      const data = buildReportData()
+      const summary = buildSummary()
+      const detail = activitySection(isObligations ? 'obligations' : 'timeEntries', records)
+      const data = { ...summary, sections: [...summary.sections, detail] }
       if (format === 'csv') downloadCsv(data)
       else await downloadXlsx(data)
     } catch (err) {
@@ -191,8 +233,20 @@ export default function ReportsPage() {
     }
   }
 
+  const handlePrint = async () => {
+    if (blocked || !printLogo.current) return
+    setExportError('')
+    try {
+      await printLogo.current.decode()
+      window.print()
+    } catch {
+      setExportError('No se pudo cargar el logotipo para imprimir. Vuelve a intentarlo.')
+    }
+  }
+
   return (
     <div className="module-page">
+      <ReportPrintout report={blocked ? null : buildSummary(true)} records={records} issuer={profile?.name} logoRef={printLogo} />
       <h1>Reportes</h1>
       <p className="page-subtitle">Configura el reporte y expórtalo a PDF, CSV o Excel</p>
 
@@ -200,35 +254,36 @@ export default function ReportsPage() {
         <div className="card config-panel">
           <h2>Configuración del reporte</h2>
           <div className="detail-row">
-            <label>Tipo de reporte</label>
-            <select value={type} onChange={(e) => setType(e.target.value as ReportType)}>
+            <label htmlFor="report-type">Tipo de reporte</label>
+            <select id="report-type" value={type} onChange={(e) => setType(e.target.value as ReportType)}>
               {Object.entries(TYPE_LABEL).filter(([k]) => k !== 'PROFITABILITY' || canProfit).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div className="detail-row">
-            <label>Periodo</label>
-            <select value={period} onChange={(e) => setPeriod(e.target.value)}>
+            <label htmlFor="report-period">Periodo</label>
+            <select id="report-period" value={period} onChange={(e) => setPeriod(e.target.value)}>
               {monthOptions().map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
           </div>
           <div className="detail-row">
-            <label>Cliente</label>
-            <select value={clientId} onChange={(e) => setClientId(e.target.value)}>
+            <label htmlFor="report-client">Cliente</label>
+            <select id="report-client" value={clientId} onChange={(e) => setClientId(e.target.value)}>
               <option value="">Todos</option>
-              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {Array.from(clientNames, ([id, name]) => <option key={id} value={id}>{name}</option>)}
             </select>
           </div>
           <div className="detail-row">
-            <label>Empleado</label>
-            <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+            <label htmlFor="report-employee">Empleado</label>
+            <select id="report-employee" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
               <option value="">Todos</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              {Array.from(userNames, ([id, name]) => <option key={id} value={id}>{name}</option>)}
             </select>
           </div>
           {type === 'OBLIGATIONS' && (
             <div className="detail-row">
-              <label>Estado de obligación</label>
+              <label htmlFor="report-obligation-status">Estado de obligación</label>
               <select
+                id="report-obligation-status"
                 value={obligationStatusFilter}
                 onChange={(e) =>
                   setObligationStatusFilter(
@@ -249,17 +304,24 @@ export default function ReportsPage() {
               Incluir cobro estimado
             </label>
           )}
-          <button className="btn" style={{ width: '100%' }} onClick={() => window.print()}>Generar PDF</button>
+          <button className="btn" style={{ width: '100%' }} disabled={blocked} onClick={handlePrint}>Generar PDF</button>
           <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
-            <button className="btn btn-ghost" style={{ flex: 1 }} disabled={exporting} onClick={() => handleExport('csv')}>Descargar CSV</button>
-            <button className="btn btn-ghost" style={{ flex: 1 }} disabled={exporting} onClick={() => handleExport('xlsx')}>Descargar Excel</button>
+            <button className="btn btn-ghost" style={{ flex: 1 }} disabled={blocked || exporting} onClick={() => handleExport('csv')}>Descargar CSV</button>
+            <button className="btn btn-ghost" style={{ flex: 1 }} disabled={blocked || exporting} onClick={() => handleExport('xlsx')}>Descargar Excel</button>
           </div>
           {exportError && <p role="alert" className="overdue footnote">{exportError}</p>}
+          {loadFailed ? <p role="alert">No se pudieron cargar los datos del reporte. <button type="button" onClick={() => setRetry(n => n + 1)}>Reintentar</button></p>
+            : loading ? <p role="status">Cargando los datos del reporte…</p>
+            : <>
+              {incomplete > 0 && <p role="status">Registros por completar: {incomplete}. Abre «Completar detalle» antes de exportar.</p>}
+              {undated.length > 0 && <p role="status">Hay {undated.length} registro(s) sin fecha. Indica la fecha para ubicarlos en su periodo.</p>}
+              {!records.length && !undated.length && <p className="footnote">No hay registros para exportar con estos filtros.</p>}
+            </>}
           <p className="footnote">Se abre el cuadro de impresión del navegador: elige «Guardar como PDF».</p>
         </div>
 
         <div className="card">
-          <h2>Vista previa <small>PDF</small></h2>
+          <h2>Resumen y actividades</h2>
           <div className="report-preview">
             <h3>{TYPE_LABEL[type]}</h3>
             <p className="report-meta">
@@ -267,7 +329,7 @@ export default function ReportsPage() {
               <br />Generado el {new Date().toLocaleDateString('es-MX')}
             </p>
 
-            {isProfit ? (
+            {loading || loadFailed || (isProfit && !canProfit) ? null : isProfit ? (
               profitability && <ProfitabilityView report={profitability} clientName={clientName} userName={userName} />
             ) : isHours ? (
               <>
@@ -315,18 +377,10 @@ export default function ReportsPage() {
               <>
                 <p className="report-meta">
                   Total: {obligationRows.length}
-                  {' · '}Pendientes: {obligationRows.filter(
-                    (o) => o.status === 'PENDING'
-                  ).length}
-                  {' · '}En progreso: {obligationRows.filter(
-                    (o) => o.status === 'IN_PROGRESS'
-                  ).length}
-                  {' · '}Cumplidas: {obligationRows.filter(
-                    (o) => o.status === 'DONE'
-                  ).length}
-                  {' · '}Vencidas: {obligationRows.filter(
-                    (o) => o.status === 'OVERDUE'
-                  ).length}
+                  {' · '}Pendientes: {statusCounts.PENDING}
+                  {' · '}En progreso: {statusCounts.IN_PROGRESS}
+                  {' · '}Cumplidas: {statusCounts.DONE}
+                  {' · '}Vencidas: {statusCounts.OVERDUE}
                 </p>
                 <table className="report-table">
                 <thead><tr><th>Obligación</th><th>Cliente</th><th>Responsable</th><th>Fecha límite</th><th>Estado</th></tr></thead>
@@ -341,6 +395,8 @@ export default function ReportsPage() {
                 </table>
               </>
             )}
+            {!loadFailed && !loading && <ReportActivities key={type + period + clientId + employeeId + obligationStatusFilter}
+              records={[...undated, ...records]} clients={directory.clients} users={directory.users} canEditClient={can(profile?.role, 'clients.edit')} />}
           </div>
         </div>
       </div>

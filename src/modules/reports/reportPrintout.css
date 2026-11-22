@@ -1,0 +1,83 @@
+.report-printout { display: none; }
+
+@page despacho-reporte {
+  size: letter portrait;
+  margin: 14mm 17mm 19mm;
+  @top-left { content: ""; }
+  @top-center { content: ""; }
+  @top-right { content: ""; }
+  @bottom-left {
+    content: "Téllez Ponce & Asociados";
+    color: #495466;
+    font: 8pt Arial, sans-serif;
+  }
+  @bottom-right {
+    content: "Página " counter(page) " de " counter(pages);
+    color: #495466;
+    font: 8pt Arial, sans-serif;
+  }
+}
+
+@media print {
+  body:has(> .report-printout) { margin: 0; background: white; }
+  body:has(> .report-printout) > :not(.report-printout) { display: none !important; }
+  .report-printout {
+    page: despacho-reporte;
+    display: block;
+    color: #17243a;
+    font: 10pt/1.35 'Segoe UI', Arial, sans-serif;
+    overflow-wrap: anywhere;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .report-printout .rp-letterhead {
+    display: flex;
+    align-items: center;
+    gap: 6mm;
+    padding-bottom: 4.5mm;
+    border-bottom: 1.3pt solid #a78a4c;
+    break-inside: avoid;
+  }
+  .report-printout .rp-letterhead img { width: 25mm; height: auto; flex: none; }
+  .report-printout .rp-firm { margin: 0 0 1.6mm; font-size: 9pt; font-weight: 600; letter-spacing: .07em; }
+  .report-printout h1, .report-printout h2 { color: #101b35; font-family: Georgia, 'Times New Roman', serif; }
+  .report-printout h1 { font-size: 28pt; line-height: 1.08; margin: 0; font-weight: 500; }
+  .report-printout h2 { margin: 0 0 2.4mm; font-size: 16pt; line-height: 1.15; break-after: avoid; }
+  .report-printout .rp-metadata {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3mm 6mm;
+    margin: 0;
+    padding: 4mm 0;
+    border-bottom: .6pt solid #c7ced7;
+    break-inside: avoid;
+  }
+  .report-printout dt { margin: 0 0 .7mm; font-size: 7.8pt; color: #465469; text-transform: uppercase; letter-spacing: .05em; }
+  .report-printout dd { margin: 0; font-size: 10pt; font-weight: 600; }
+  .report-printout .rp-section { margin-top: 6mm; }
+  .report-printout table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+  .report-printout thead { display: table-header-group; break-inside: avoid; }
+  .report-printout tr { break-inside: avoid; }
+  .report-printout th, .report-printout td { text-align: left; vertical-align: top; padding: 2mm 2.6mm; }
+  .report-printout th { color: #182745; background: #edf1f5; border-block: .65pt solid #9eaab9; font-size: 8.4pt; }
+  .report-printout td { border-bottom: .45pt solid #cdd3db; }
+  .report-printout .rp-number { text-align: right; font-variant-numeric: tabular-nums; }
+  .report-printout .rp-summary td.rp-number { white-space: nowrap; }
+  .report-printout .rp-summary-wide { font-size: 9pt; }
+  .report-printout .rp-summary-wide th, .report-printout .rp-summary-wide td { padding-inline: 1.6mm; }
+  .report-printout .rp-total td { font-weight: 700; background: #f3f5f7; border-top: .8pt solid #8796a8; }
+  .report-printout .rp-note { font-size: 9pt; margin: 2.2mm 0 0; }
+  .report-printout .rp-activities { table-layout: fixed; }
+  .report-printout .rp-activities + .rp-activities { margin-top: 4mm; }
+  .report-printout .rp-who { width: 24%; }
+  .report-printout .rp-result { width: 24%; }
+  .report-printout .rp-client th { background: white; border: 0; border-top: .9pt solid #34445e; padding: 2.1mm 2.6mm; }
+  .report-printout .rp-client-name { font-size: 11pt; }
+  .report-printout .rp-industry { display: block; font-size: 8.5pt; font-weight: 400; color: #425065; margin-top: .5mm; }
+  .report-printout .rp-activities td { padding-block: 3mm; }
+  .report-printout .rp-activities time, .report-printout .rp-measure { font-weight: 650; font-variant-numeric: tabular-nums; }
+  .report-printout .rp-activity-name, .report-printout .rp-purpose { white-space: pre-wrap; }
+  .report-printout .rp-person, .report-printout .rp-purpose { margin-top: 1mm; }
+  .report-printout .rp-purpose span, .report-printout .rp-field span { font-weight: 600; }
+  .report-printout .rp-field { margin-top: 1.2mm; font-size: 8.5pt; color: #415064; }
+}
