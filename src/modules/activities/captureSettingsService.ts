@@ -11,8 +11,16 @@ export function normalizeSettings(uid: string, data: Record<string, unknown> | u
   }
 }
 
-export function subscribeCaptureSettings(uid: string, callback: (s: CaptureSettings) => void): () => void {
-  return onSnapshot(doc(db, 'captureSettings', uid), (snap) => callback(normalizeSettings(uid, snap.exists() ? snap.data() : undefined)))
+export function subscribeCaptureSettings(
+  uid: string,
+  callback: (settings: CaptureSettings) => void,
+  onError: (error: Error) => void,
+): () => void {
+  return onSnapshot(
+    doc(db, 'captureSettings', uid),
+    (snap) => callback(normalizeSettings(uid, snap.data())),
+    onError,
+  )
 }
 
 // merge: solo se escriben los campos indicados; lo demás del documento se conserva.

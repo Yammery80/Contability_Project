@@ -303,3 +303,69 @@ select, input, textarea { font-family: inherit; font-size: .88rem; color: var(--
 .row-muted td { color: var(--muted); background: #fafbfe; }
 .suggestion-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; }
 .suggestion-edit { margin-top: .4rem; }
+
+.suggestion-actions .btn.suggestion-approve {
+  background: #15803d;
+  border: 1px solid #15803d;
+  color: #fff;
+}
+
+.suggestion-actions .btn.suggestion-approve:hover:not(:disabled) {
+  background: #166534;
+  border-color: #166534;
+}
+
+.suggestion-actions .btn.suggestion-reject {
+  background: transparent;
+  border: 1px solid #b91c1c;
+  color: #b91c1c;
+}
+
+.suggestion-actions .btn.suggestion-reject:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.time-request-card {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(1, 7, 41, 0.2);
+  border-left: 4px solid #010729;
+  border-radius: 12px;
+  background: #fff;
+  color: #010729;
+}
+
+.time-request-card h3 {
+  margin: 0 0 0.5rem;
+}
+
+.time-request-card p {
+  margin: 0.35rem 0;
+}
+
+.time-request-card .timer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.time-request-card .btn.suggestion-approve {
+  background: #010729;
+  border: 1px solid #010729;
+  color: #fff;
+}
+
+.time-request-card .btn.suggestion-reject {
+  background: #fff;
+  border: 1px solid #010729;
+  color: #010729;
+}
+
+.time-request-card .btn.suggestion-approve:hover:not(:disabled) {
+  background: rgba(1, 7, 41, 0.88);
+}
+
+.time-request-card .btn.suggestion-reject:hover:not(:disabled) {
+  background: rgba(1, 7, 41, 0.08);
+}
