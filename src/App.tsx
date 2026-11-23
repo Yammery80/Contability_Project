@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth, homeRouteForRole } from './hooks/useAuth'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import AppLayout from './components/AppLayout'
+import { Analytics } from "@vercel/analytics/next"
 
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'

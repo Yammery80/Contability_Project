@@ -23,7 +23,7 @@ const nav = (base: string, extra: NavItem[] = [], withClients = true): NavItem[]
   { label: 'Registro de tiempos', to: `${base}/time-tracker` },
   { label: 'Historial de actividades', to: `${base}/activities` },
   { label: 'Sugerencias de horas', to: `${base}/suggestions` },
-  { label: 'Mi captura', to: `${base}/capture` },
+  //{ label: 'Mi captura', to: `${base}/capture` },
   ...(withClients ? [{ label: 'Clientes', to: `${base}/clients` }, { label: 'Proyectos', to: `${base}/projects` }] : []),
   { label: 'Obligaciones fiscales', to: `${base}/obligations` },
   { label: 'Calendario fiscal', to: `${base}/calendar` },
