@@ -14,14 +14,34 @@ export default function CaptureSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!profile) return
-    return subscribeCaptureSettings(profile.id, setSettings)
-  }, [profile])
+const uid = profile?.id
 
-  if (!profile) return null
-  if (!settings) return <div className="module-page"><p>Cargando…</p></div>
+useEffect(() => {
+  if (!uid) return
 
+  setSettings(null)
+  setError(null)
+
+  return subscribeCaptureSettings(uid, setSettings, (err) => {
+    console.error('[Mi captura] Error al leer la configuración:', err)
+    setError('No se pudo cargar la configuración de captura.')
+  })
+}, [uid])
+
+if (!profile) return null
+
+if (!settings) {
+  return (
+    <div className="module-page">
+      <h1>Mi captura</h1>
+      {error ? (
+        <div className="alert alert-error" role="alert">{error}</div>
+      ) : (
+        <p>Cargando…</p>
+      )}
+    </div>
+  )
+}
   // ---------- HU-58: dominios excluidos ----------
   const addDomain = async (e: React.FormEvent) => {
     e.preventDefault()

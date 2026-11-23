@@ -500,5 +500,16 @@ service cloud.firestore {
         && request.resource.data.active is bool;
       allow delete: if hasAnyRole(['ADMIN','SUPERUSER']);
     }
+    match /captureSettings/{userId} {
+      allow get: if isSignedIn() && isActive()
+        && request.auth.uid == userId;
+
+      allow create, update: if isSignedIn() && isActive()
+        && request.auth.uid == userId
+        && request.resource.data.userId == userId
+        && request.resource.data.excludedDomains is list
+        && request.resource.data.updatedAt is number;
+    }
   }
+
 }

@@ -71,16 +71,32 @@ export default function LateTimeInbox({ profile, users, tasks }: { profile: AppU
     <h2>{review ? 'Solicitudes de tiempo' : 'Mis solicitudes de tiempo'}</h2>
     {error && <p role="alert">{error}</p>}
     {!rows.length && !error && <p>Sin solicitudes.</p>}
-    {rows.map(r => <article key={r.id}>
+    {rows.map(r => <article key={r.id} className="time-request-card">
       <h3>{r.entry.description || 'Registro de tiempo'} · {labels[r.status]}</h3>
       <p>{name(r.entry.userId)} · {new Date(r.entry.startTime!).toLocaleString('es-MX')} a {new Date(r.entry.endTime!).toLocaleTimeString('es-MX')} · {r.entry.duration / 60} min</p>
       {r.entry.taskId && <p>Tarea: {tasks.find(t => t.id === r.entry.taskId)?.title ?? r.entry.taskId}</p>}
       {r.kind === 'STANDARD' ? <p>Solicitud de registro</p> : <p>Motivo del registro extemporáneo: {r.reason}</p>}
       {r.reviewedBy && <p>Revisó <ReviewerName key={r.reviewedBy} uid={r.reviewedBy} knownName={users.find(u => u.id === r.reviewedBy)?.name} /> · {r.reviewedAt?.toDate().toLocaleString('es-MX')}</p>}
-      {review && r.entry.userId !== profile.id && r.status === 'PENDING' && <div className="timer-actions">
-        <button disabled={Boolean(busy)} onClick={() => decide(r.id, true)}>Aprobar</button>
-        <button disabled={Boolean(busy)} onClick={() => decide(r.id, false)}>Rechazar</button>
-      </div>}
-    </article>)}
+      {review && r.entry.userId !== profile.id && r.status === 'PENDING' && (
+        <div className="timer-actions suggestion-actions">
+          <button
+            type="button"
+            className="btn btn-sm suggestion-approve"
+            disabled={Boolean(busy)}
+            onClick={() => decide(r.id, true)}
+          >
+            Aprobar
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm suggestion-reject"
+            disabled={Boolean(busy)}
+            onClick={() => decide(r.id, false)}
+          >
+            Rechazar
+          </button>
+        </div>
+      )}
+          </article>)}
   </section>
 }

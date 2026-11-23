@@ -245,9 +245,17 @@ function SuggestionCard({ s, lists, base, onNotice }: { s: TimeSuggestion; lists
         <>
           {error && <div className="alert alert-error" style={{ marginTop: '.7rem' }}>{error}</div>}
           <div className="suggestion-actions">
-            <button className="btn btn-sm" disabled={busy} onClick={approve}>Aprobar</button>
+            <button className="btn btn-sm suggestion-approve" disabled={busy} onClick={approve}>
+              Aprobar
+            </button>
             <button className="btn btn-ghost btn-sm" disabled={busy} onClick={openEdit}>Editar</button>
-            <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => { setError(null); setMode('reject') }}>Rechazar</button>
+            <button
+              className="btn btn-ghost btn-sm suggestion-reject"
+              disabled={busy}
+              onClick={() => { setError(null); setMode('reject') }}
+            >
+              Rechazar
+            </button>
             <button className="btn btn-ghost btn-sm" disabled={busy} onClick={remove} title="Deshace la sugerencia y libera sus actividades">Eliminar sugerencia</button>
           </div>
         </>
